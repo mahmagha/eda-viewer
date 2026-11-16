@@ -1,0 +1,1616 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDA Drugs Viewer</title>
+<style>
+:root{--bg:#f6f7f9;--panel:#fff;--text:#1d2330;--muted:#677084;--line:#e1e4ea;--accent:#1f6feb;--accent-soft:#e8f0fe;--err:#c62828;--err-soft:#fdecea;--ok:#1a7f37;--ok-soft:#e6f4ea;--track:#eef0f4}
+@media (prefers-color-scheme:dark){:root{--bg:#14171c;--panel:#1c2027;--text:#e6e9ef;--muted:#98a1b3;--line:#2c323c;--accent:#5b9dff;--accent-soft:#1f2b40;--err:#ff7b72;--err-soft:#3a1f1f;--ok:#56d364;--ok-soft:#1b3326;--track:#262b34}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;font:14px/1.45 system-ui,"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--text)}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+header{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:3}
+.topbar{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:10px 16px 0}
+h1{font-size:16px;margin:0 8px 0 0}
+nav{display:flex;gap:2px;flex-wrap:wrap}
+nav a{padding:8px 12px;border-bottom:2px solid transparent;color:var(--muted);font-weight:500}
+nav a:hover{text-decoration:none;color:var(--text)}
+nav a.on{color:var(--accent);border-bottom-color:var(--accent)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 16px;border-top:1px solid var(--line)}
+input,select,button{font:inherit;color:inherit;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 9px}
+input[type=search]{flex:1;min-width:220px}
+input[type=checkbox]{padding:0}
+button,.btn{cursor:pointer;display:inline-block;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--panel);color:var(--text)}
+.btn:hover{text-decoration:none;background:var(--accent-soft)}
+button.primary,.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button:disabled{opacity:.4;cursor:default}
+select{max-width:220px}
+label.chk{display:flex;gap:5px;align-items:center;color:var(--muted)}
+.stats{color:var(--muted);font-size:13px;width:100%;padding:0 16px 8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{display:inline-flex;gap:6px;align-items:center;background:var(--accent-soft);color:var(--text);border-radius:14px;padding:3px 10px;font-size:13px}
+.chip button{border:0;background:none;padding:0;color:var(--muted);font-size:15px;line-height:1}
+.chip .n{color:var(--muted);font-size:12px}
+main{padding:16px}
+#view-drugs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px;align-items:start}
+@media (max-width:900px){#view-drugs{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.page{padding:18px 20px;max-width:1200px;margin:0 auto}
+.page h2{margin:0 0 4px;font-size:20px}
+.page h3,#detail h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:22px 0 8px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:start;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;unicode-bidi:plaintext}
+th{font-weight:600;color:var(--muted);font-size:12px;background:var(--bg)}
+td.num,th.num{text-align:end;white-space:nowrap;font-variant-numeric:tabular-nums}
+#list tbody tr,.ptable tbody tr{cursor:pointer}
+#list tbody tr:hover,.ptable tbody tr:hover{background:var(--accent-soft)}
+#list tbody tr.sel{background:var(--accent-soft);box-shadow:inset 3px 0 var(--accent)}
+.pager{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;color:var(--muted);gap:8px}
+.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.tag.err{background:var(--err-soft);color:var(--err);border-color:transparent}
+.tag.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+#detail{padding:16px;position:sticky;top:132px;max-height:calc(100vh - 148px);overflow:auto}
+#detail h2{margin:0 0 4px;font-size:18px;unicode-bidi:plaintext}
+.kv td:first-child{color:var(--muted);width:38%}
+.ing{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.ing-name{font-weight:600;margin-bottom:6px;unicode-bidi:plaintext}
+.cmp{margin-top:8px}.cmp + .cmp{border-top:1px dashed var(--line);padding-top:8px}
+.cmp-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.iupac{font-family:ui-monospace,Consolas,monospace;font-size:12px;word-break:break-word;margin:6px 0}
+.ids td{padding:4px 10px}
+code{font-family:ui-monospace,Consolas,monospace;background:var(--bg);padding:1px 4px;border-radius:4px}
+.meta{color:var(--muted);font-size:12px}
+.errbox{background:var(--err-soft);color:var(--err);padding:8px 10px;border-radius:6px;margin-top:10px}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.sub{overflow:auto;border:1px solid var(--line);border-radius:6px}
+body.no-openpyxl .xlsx, body.no-rdkit [data-v="chem"], body.no-rdkit .chemonly{display:none!important}
+body.static .serveronly{display:none!important}
+.sopdoc{max-width:900px}.sopdoc h1{font-size:1.4rem}.sopdoc h2{margin-top:1.6rem;border-bottom:1px solid var(--line)}
+.sopdoc table{border-collapse:collapse;width:100%;margin:.5rem 0}.sopdoc th,.sopdoc td{border:1px solid var(--line);padding:.3rem .5rem;text-align:left;vertical-align:top}
+.sopdoc blockquote{margin:.5rem 0;padding:.3rem .8rem;border-left:4px solid var(--line);opacity:.95}.sopdoc img{max-width:300px;background:#fff}
+.mk{padding:0 .2rem;border-radius:3px}.mk-to,.mk-site{background:#fff2c6;color:#6b4e00}.mk-proposed{background:#e3ecff;color:#1d3f8f}
+.sopdoc .tw{overflow-x:auto}.sopdoc code{background:var(--line);padding:0 .2rem;border-radius:3px}
+.sopstatus{border:1px solid var(--line);border-radius:6px;padding:.6rem .8rem;margin:.4rem 0 .8rem;display:grid;gap:.4rem}
+.tag.ok{background:#dff3e4;color:#1d6b35}
+iframe{width:100%;height:420px;border:1px solid var(--line);border-radius:6px;background:#fff}
+mark{background:#ffe58a;color:#000;border-radius:2px}
+.eq h4{margin:14px 0 6px;font-size:13px}
+.price{font-weight:600}
+.cheapest{color:var(--ok);font-size:11px;margin-inline-start:4px}
+/* stat tiles + bar lists (single series: one hue, value as text, hover tooltip) */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:12px 0}
+.tile{background:var(--bg);border-radius:8px;padding:12px 14px}
+.tile .v{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .l{color:var(--muted);font-size:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:8px 28px}
+.bars{display:grid;grid-template-columns:minmax(90px,max-content) 1fr auto;gap:5px 10px;align-items:center}
+.bars .bl{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:260px;unicode-bidi:plaintext}
+.bars .bt{height:12px;background:var(--track);border-radius:0 4px 4px 0}
+.bars .bf{height:12px;background:var(--accent);border-radius:0 4px 4px 0;min-width:2px}
+.bars .bv{font-size:12px;color:var(--muted);text-align:end;font-variant-numeric:tabular-nums}
+.bars .row{display:contents}
+.bars .row:hover .bf{filter:brightness(1.2)}
+.bars .row:hover .bl{color:var(--accent)}
+.bars a.row{color:inherit;text-decoration:none}
+.crumbs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;color:var(--muted);font-size:13px;margin-bottom:6px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.tabs{display:flex;gap:4px;margin:10px 0}
+.tabs button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.note{background:var(--bg);border-radius:6px;padding:8px 10px;color:var(--muted);font-size:13px;margin:8px 0}
+.filters2{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%}
+.tag.eml{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+details.ph{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:8px 0}
+details.ph summary{cursor:pointer;font-weight:600}
+details.ph .it{margin:8px 0;white-space:pre-line;unicode-bidi:plaintext}
+.src{color:var(--muted);font-size:12px}
+.cmpbtn{font-size:12px;padding:2px 8px}
+.cmp-t td,.cmp-t th{min-width:180px}
+.cmp-t td.diff{background:var(--accent-soft)}
+.cmp-t th.rowh{min-width:140px;position:sticky;left:0;background:var(--bg)}
+.snip{color:var(--muted);font-size:13px;margin-top:2px}
+#suggest:empty{display:none}
+.tag.warn{background:#fff4e5;color:#8a5300;border-color:transparent}
+@media (prefers-color-scheme:dark){.tag.warn{background:#3a2c14;color:#f0b35a}}
+a.tile{color:inherit;text-decoration:none;display:block}a.tile:hover{background:var(--accent-soft)}
+img.mini{width:84px;height:60px;background:#fff;border-radius:4px}
+.tools{float:inline-end;display:inline-flex;gap:6px;font-size:13px;font-weight:400}
+details.morenav{position:relative}
+details.morenav summary{list-style:none;cursor:pointer;padding:8px 12px;color:var(--muted);font-weight:500;border-bottom:2px solid transparent}
+details.morenav summary::-webkit-details-marker{display:none}
+details.morenav.on summary{color:var(--accent);border-bottom-color:var(--accent)}
+details.morenav .menu{position:absolute;inset-inline-end:0;top:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px;display:grid;min-width:210px;z-index:5}
+details.morenav .menu a{border-bottom:0;padding:7px 10px;border-radius:6px}
+details.morenav .menu a:hover{background:var(--accent-soft)}
+#filtbtn{display:none}
+/* phones */
+@media (max-width:700px){
+  #filtbtn{display:inline-block}
+  .filters:not(.open) > :not(#q):not(#filtbtn):not(#active){display:none!important}
+  #q{min-width:0}
+  .topbar{padding:8px 10px 0}
+  nav{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+  nav a,details.morenav summary{padding:8px 9px;white-space:nowrap}
+  details.morenav{position:static}
+  details.morenav .menu{inset-inline:10px auto;top:auto}
+  .filters{padding:8px 10px;gap:6px}
+  .filters select,.filters input{max-width:100%;flex:1 1 140px}
+  header{position:static}
+  main{padding:8px}
+  #detail{position:static;max-height:none}
+  .page{padding:12px}
+  .grid2{grid-template-columns:1fr}
+  .bars .bl{max-width:150px}
+  .tools{float:none;display:flex;margin-top:6px}
+  #list th:nth-child(n+4),#list td:nth-child(n+4){display:none}
+  th,td{padding:6px 7px}
+}
+/* printing / save as PDF */
+@media print{
+  header,.filters,.noprint,.tools,.pager,button,#suggest,.tabs,details.morenav{display:none!important}
+  body{background:#fff;color:#000;font-size:11pt}
+  main{padding:0}
+  .panel{border:0}
+  #view-drugs{display:block}#view-drugs>section:first-child{display:none}
+  #detail{position:static;max-height:none;overflow:visible}
+  details.ph{break-inside:avoid}details.ph:not([open])>*:not(summary){display:block}
+  .sub{overflow:visible;border:0}
+  tr[hidden]{display:table-row!important}
+  a{color:#000;text-decoration:none}
+  h3{break-after:avoid}
+  .tiles{grid-template-columns:repeat(4,1fr)}
+  figure.struct{break-inside:avoid}
+}
+figure.struct{margin:10px 0;background:#fff;border:1px solid var(--line);border-radius:8px;display:inline-block;padding:6px}
+figure.struct img{display:block;max-width:100%;height:auto}
+figure.struct figcaption{padding:2px 4px 0}
+@media (prefers-color-scheme:dark){figure.struct{background:#f4f5f7}figure.struct figcaption{color:#555}}
+.ix{border-inline-start:3px solid var(--err);padding:4px 10px;margin:8px 0;background:var(--err-soft);border-radius:4px}
+html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
+</style></head><body>
+<header>
+  <div class="topbar">
+    <h1>EDA Drugs</h1>
+    <nav>
+      <a href="#/" data-v="drugs">Drugs</a>
+      <a href="#/ingredients" data-v="ingredients">Ingredients</a>
+      <a href="#/treats" data-v="treats">What it treats</a>
+      <a href="#/companies" data-v="companies">Companies</a>
+      <a href="#/antibiotics" data-v="antibiotics">Antibiotics</a>
+      <a href="#/market" data-v="market">Market</a>
+      <a href="#/stats" data-v="stats">Statistics</a>
+      <a href="#/compare" data-v="compare" id="cmpnav">Compare</a>
+      <details class="morenav"><summary>More ▾</summary><div class="menu">
+        <a href="#/regulatory" data-v="regulatory">Regulatory status</a>
+        <a href="#/controlled" data-v="controlled">Controlled substances</a>
+        <a href="#/chem" data-v="chem">Chemistry</a>
+        <a href="#/atc" data-v="atc">Classes (ATC)</a>
+        <a href="#/countries" data-v="countries">Origin</a>
+        <a href="#/vet" data-v="vet">Veterinary</a>
+        <a href="#/changes" data-v="changes">What changed</a>
+        <a href="#/quality" data-v="quality" class="serveronly">Review</a>
+        <a href="#/notes" data-v="notes">My notes</a>
+      </div></details>
+    </nav>
+    <button id="langbtn" style="margin-inline-start:auto">عربي</button>
+  </div>
+  <div class="filters" id="filters">
+    <input type="search" id="q" placeholder="Search any field: name, reg no, ingredient, company… (Arabic works too)"
+      title="3 or more letters search every field; 1–2 letters match the start of trade, company and ingredient names">
+    <button id="filtbtn" type="button">Filters ▾</button>
+    <select id="type"><option value="">All types</option><option value="medicines">All except cosmetics</option></select>
+    <select id="form"><option value="">Any dosage form</option></select>
+    <select id="license"><option value="">Any licence status</option></select>
+    <select id="marketing"><option value="">Marketed or not</option></select>
+    <input id="company" placeholder="Company contains…" style="width:170px">
+    <label class="chk"><input type="checkbox" id="price"> has price</label>
+    <select id="sort">
+      <option value="">Sort: registration order</option><option value="name">Sort: trade name</option>
+      <option value="price">Sort: price, low → high</option><option value="price_desc">Sort: price, high → low</option>
+      <option value="company">Sort: company</option>
+    </select>
+    <select id="status"><option value="">All records</option><option value="details">With details</option><option value="errors">Detail errors</option></select>
+    <button id="morebtn">More filters</button>
+    <button id="savebtn">Save search</button>
+    <select id="saved"></select>
+    <button id="reset">Clear filters</button>
+    <a class="btn" id="export" href="#">Export CSV</a>
+    <a class="btn xlsx" id="exportx" href="#">Excel</a>
+    <div class="filters2" id="more" hidden>
+      <select id="group"><option value="">Any corporate group</option></select>
+      <select id="origin"><option value="">Made anywhere</option><option>Made in Egypt</option><option>Imported</option></select>
+      <select id="country"><option value="">Any manufacturer country</option></select>
+      <select id="storage"><option value="">Any storage</option></select>
+      <select id="species"><option value="">Any target species (veterinary)</option></select>
+      <select id="aware"><option value="">Any antibiotic group (AWaRe)</option><option value="any">Any antibiotic</option>
+        <option>Access</option><option>Watch</option><option>Reserve</option><option>Not recommended</option><option>Unlisted combination</option></select>
+      <select id="flag"><option value="">No safety flag filter</option><option value="withdrawn">Ingredient withdrawn abroad</option>
+        <option value="controlled">Controlled substance</option></select>
+      <select id="pop"><option value="">Any patient group</option><option value="child">Suitable for children</option>
+        <option value="noswallow">No tablet or capsule to swallow</option></select>
+      <label class="chk"><input type="checkbox" id="eml"> WHO essential medicine</label>
+    </div>
+    <div class="chips" id="active"></div>
+  </div>
+  <div class="stats" id="stats">Loading…</div>
+</header>
+<main>
+  <div id="view-drugs">
+    <section class="panel">
+      <div id="suggest" class="note" style="margin:8px"></div>
+      <table id="list"><thead></thead><tbody></tbody></table>
+      <div class="pager"><button id="prev">← Prev</button><span id="pinfo"></span><button id="next">Next →</button></div>
+    </section>
+    <section class="panel" id="detail"><div class="empty">Pick a drug to see all of its data.</div></section>
+  </div>
+  <section class="panel page" id="page" hidden></section>
+</main>
+<script src="static_api.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = n => (n ?? 0).toLocaleString();
+const money = p => p == null ? "" : `${(+p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} EGP`;
+const ingHref = k => "#/ingredient/" + encodeURIComponent(k);
+// structure drawing: from the server, or a pre-drawn file in the static copy (static_api.js)
+const structUrl = k => window.STATIC_STRUCT ? window.STATIC_STRUCT(k) : "/api/structure?key=" + encodeURIComponent(k);
+const coHref = n => "#/company/" + encodeURIComponent(n);
+let page = 0, selected = null, timer = null;
+
+// ---------------------------------------------------------------- drug-list filters
+const BLANK = {q:"", type:"", status:"", form:"", license:"", marketing:"", company:"", price:false, sort:"",
+           group:"", origin:"", country:"", storage:"", species:"", pop:"", aware:"", flag:"", eml:false,
+           ings:[], only:false, atc:null, treats:"", mfr:"", ckey:null};
+const F = {...BLANK, ings:[]};
+const CTRLS = ["q","type","status","form","license","marketing","company","sort","group","origin","country","storage","species","pop","aware","flag"];
+function readControls(){ for(const k of CTRLS) F[k] = $("#"+k).value.trim(); F.price = $("#price").checked; F.eml = $("#eml").checked; }
+function writeControls(){ for(const k of CTRLS) $("#"+k).value = F[k]; $("#price").checked = F.price; $("#eml").checked = F.eml;
+  if(F.group || F.origin || F.country || F.storage || F.species || F.pop || F.aware || F.flag || F.eml) $("#more").hidden = false; }
+function params(withPage=true){
+  const p = new URLSearchParams();
+  for(const k of CTRLS) if(F[k]) p.set(k, F[k]);
+  if(F.price) p.set("price","1");
+  if(F.ings.length){ p.set("ings", F.ings.map(i=>i.key).join(",")); if(F.only) p.set("only","1"); }
+  if(F.atc) p.set("atc", F.atc.code);
+  if(F.eml) p.set("eml", "1");
+  if(F.treats) p.set("treats", F.treats);
+  if(F.mfr) p.set("mfr", F.mfr);
+  if(F.ckey) p.set("ckey", F.ckey.key);
+  if(withPage) p.set("page", page);
+  return p;
+}
+function renderActive(){
+  const chips = [];
+  if(F.ings.length) chips.push(`<span class="meta">Contains ${F.ings.length>1?"all of":""}</span>` +
+    F.ings.map((i,n)=>`<span class="chip">${esc(i.title)}<button data-rm-ing="${n}" title="Remove">×</button></span>`).join("") +
+    (F.ings.length ? `<label class="chk"><input type="checkbox" id="only" ${F.only?"checked":""}> nothing else</label>` : ""));
+  if(F.atc) chips.push(`<span class="chip">Class ${esc(F.atc.code)} ${esc(F.atc.label||"")}<button data-rm-atc title="Remove">×</button></span>`);
+  if(F.treats) chips.push(`<span class="chip">Treats “${esc(F.treats)}”<button data-rm="treats" title="Remove">×</button></span>`);
+  if(F.mfr) chips.push(`<span class="chip">Made by ${esc(F.mfr)}<button data-rm="mfr" title="Remove">×</button></span>`);
+  if(F.ckey) chips.push(`<span class="chip">Applicant ${esc(F.ckey.name)}<button data-rm="ckey" title="Remove">×</button></span>`);
+  $("#active").innerHTML = chips.join(" ");
+  const o = $("#only"); if(o) o.onchange = () => { F.only = o.checked; page=0; loadList(); };
+}
+$("#active").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  if(b.dataset.rmIng != null) F.ings.splice(+b.dataset.rmIng, 1);
+  if(b.dataset.rmAtc != null) F.atc = null;
+  if(b.dataset.rm) F[b.dataset.rm] = BLANK[b.dataset.rm];
+  page = 0; renderActive(); loadList();
+});
+function showDrugList(opts){  // used by other pages: "show these products in the drug list"
+  Object.assign(F, {...BLANK, ings:[]}, opts);
+  writeControls(); renderActive(); page = 0; location.hash = "#/"; loadList();
+}
+
+function hl(text){
+  const q = $("#q").value.trim(); const t = esc(text);
+  if(!q) return t;
+  const re = new RegExp(esc(q).replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), "gi");
+  return t.replace(re, m => `<mark>${m}</mark>`);
+}
+async function get(url){ const r = await fetch(url); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j; }
+
+async function loadStats(){
+  try{
+    const [s, f] = await Promise.all([get("/api/stats"), get("/api/facets")]);
+    for(const m of (s.missing || [])) document.body.classList.add("no-" + m);
+    if(s.static) document.body.classList.add("static");  // exported read-only copy (eda_static.py)
+    $("#stats").textContent = `${s.drugs.toLocaleString()} products · ${s.with_details.toLocaleString()} with details · ${s.errors} detail errors · ${s.searches.toLocaleString()} searches done`
+      + (s.static ? ` · read-only copy of ${s.exported}` : "");
+    for(const t of s.types){ const o=document.createElement("option"); o.value=o.textContent=t; $("#type").append(o); }
+    const fill = (sel, vals) => { for(const v of vals){ const o=document.createElement("option"); o.value=o.textContent=v; $(sel).append(o); } };
+    fill("#form", f.forms); fill("#license", f.license); fill("#marketing", f.marketing);
+    fill("#group", f.groups||[]); fill("#country", f.countries||[]); fill("#storage", f.storage||[]); fill("#species", f.species||[]);
+    writeControls();
+  }catch(e){ $("#stats").textContent = e.message; }
+}
+
+let inflight = null;
+async function loadList(){
+  const p = params();
+  $("#export").href = "/api/export.csv?" + params(false);
+  $("#exportx").href = "/api/export.xlsx?" + params(false);
+  if(inflight) inflight.abort();           // drop the previous search if still running
+  const ctl = inflight = new AbortController();
+  $("#pinfo").textContent = "Searching…";
+  let d;
+  try{ const r = await fetch("/api/drugs?"+p, {signal: ctl.signal}); d = await r.json(); if(!r.ok) throw new Error(d.error||r.status); }
+  catch(e){ if(e.name==="AbortError") return; $("#list tbody").innerHTML=`<tr><td class="empty">${esc(e.message)}</td></tr>`; return; }
+  if(ctl !== inflight) return;
+  const cols = [];
+  for(const r of d.rows) for(const k of Object.keys(r.list)) if(!cols.includes(k) && !/^col\d+$/.test(k) && cols.length<4) cols.push(k);
+  if(!cols.length && d.rows.length) cols.push(...Object.keys(d.rows[0].list).slice(0,4));
+  $("#list thead").innerHTML = "<tr><th>#</th>"+cols.map(c=>`<th>${esc(c)}</th>`).join("")+`<th class="num">Lowest price</th><th></th></tr>`;
+  $("#list tbody").innerHTML = d.rows.length ? d.rows.map(r =>
+    `<tr data-id="${r.id}" class="${r.id===selected?"sel":""}"><td>${r.id}</td>${cols.map(c=>`<td>${hl(r.list[c])}</td>`).join("")}
+     <td class="num">${money(r.price)}</td><td>${r.err?'<span class="tag err">error</span>':''}</td></tr>`).join("")
+    : `<tr><td class="empty" colspan="9">No products match.</td></tr>`;
+  const pages = Math.max(1, Math.ceil(d.total/d.page_size));
+  $("#pinfo").textContent = `${d.total.toLocaleString()} results · page ${page+1} of ${pages}`
+    + (d.also && d.also.length ? ` · includes ${d.also.join(", ")}` : "");
+  $("#prev").disabled = page===0; $("#next").disabled = page+1>=pages;
+  suggestFor(F.q, d.total);
+}
+
+function kvTable(obj){
+  const e = Object.entries(obj||{});
+  if(!e.length) return '<p class="meta">None.</p>';
+  return `<table class="kv">${e.map(([k,v])=>`<tr><td>${esc(k)}</td><td>${hl(v)}</td></tr>`).join("")}</table>`;
+}
+function rowsTable(rows){
+  const cols=[...new Set(rows.flatMap(r=>Object.keys(r)))];
+  return `<div class="sub"><table><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join("")}</tr>${rows.map(r=>`<tr>${cols.map(c=>`<td>${hl(r[c])}</td>`).join("")}</tr>`).join("")}</table></div>`;
+}
+
+// ---------------------------------------------------------------- ingredient identifiers
+const ID_LINKS = [
+  ["cas",        "CAS",          v => `https://commonchemistry.cas.org/detail?cas_rn=${v}`],
+  ["cid",        "PubChem CID",  v => `https://pubchem.ncbi.nlm.nih.gov/compound/${v}`],
+  ["iuphar",     "IUPHAR/BPS",   v => `https://www.guidetopharmacology.org/GRAC/LigandDisplayForward?ligandId=${v}`],
+  ["drugbank",   "DrugBank",     v => `https://go.drugbank.com/${/^DBSALT/.test(v)?"salts":"drugs"}/${v}`],
+  ["chemspider", "ChemSpider",   v => `https://www.chemspider.com/Chemical-Structure.${v}.html`],
+  ["unii",       "UNII",         v => `https://precision.fda.gov/uniisearch/srs/unii/${v}`],
+  ["kegg",       "KEGG",         v => `https://www.kegg.jp/entry/${v}`],
+  ["chebi",      "ChEBI",        v => `https://www.ebi.ac.uk/chebi/searchId.do?chebiId=CHEBI:${v}`],
+  ["chembl",     "ChEMBL",       v => `https://www.ebi.ac.uk/chembl/explore/compound/${v}`],
+  ["pdb_ligand", "PDB ligand",   v => `https://www.rcsb.org/ligand/${v}`],
+  ["comptox",    "CompTox Dashboard", v => `https://comptox.epa.gov/dashboard/chemical/details/${v}`],
+  ["echa",       "ECHA InfoCard",v => `https://echa.europa.eu/substance-information/-/substanceinfo/${v}`],
+  ["atc",        "ATC code",     v => `https://atcddd.fhi.no/atc_ddd_index/?code=${v}`],
+  ["mesh",       "MeSH",         v => `https://meshb.nlm.nih.gov/record/ui?ui=${v}`],
+  ["uniprot",    "UniProt",      v => `https://www.uniprot.org/uniprotkb/${v}`],
+  ["ncbi_taxon", "NCBI Taxonomy",v => `https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi?id=${v}`],
+  ["gbif",       "GBIF",         v => `https://www.gbif.org/species/${v}`],
+  ["powo",       "Plants of the World Online", v => `https://powo.science.kew.org/taxon/${v}`],
+  ["qid",        "Wikidata",     v => `https://www.wikidata.org/wiki/${v}`],
+];
+const ext = (url, text) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(text)}</a>`;
+
+function compoundBlock(c, label){
+  if(!c) return "";
+  const ids = ID_LINKS.filter(([k]) => c[k] != null && c[k] !== "").map(([k, name, url]) =>
+    `<tr><td>${name}</td><td>${String(c[k]).split("; ").map(v => ext(url(v), v)).join(", ")}</td></tr>`).join("");
+  return `<div class="cmp">
+    ${label ? `<div class="meta">${label}</div>` : ""}
+    <div class="cmp-head"><b>${esc(c.title || "")}</b>
+      ${c.kind ? `<span class="tag">${esc(c.kind)}</span>` : ""}
+      ${c.wiki_url ? ext(c.wiki_url, "Wikipedia ↗") : '<span class="meta">no English Wikipedia article</span>'}</div>
+    ${c.description ? `<div class="meta">${esc(c.description)}</div>` : ""}
+    ${c.iupac ? `<div class="iupac"><span class="meta">IUPAC name</span><br>${esc(c.iupac)}</div>` : ""}
+    <table class="kv ids">${ids}</table></div>`;
+}
+
+function matchNote(i){
+  const as = `“${esc(i.matched_as || "")}”`;
+  const why = {source: `Not a single compound: linked to its source, ${as}.`,
+               related: `One component of a product: linked to ${as}.`,
+               alias: `Found under its standard name ${as}.`}[i.match_type];
+  return why ? `<div class="meta">${why}${i.match_note ? ` <i>${esc(i.match_note)}</i>` : ""}</div>` : "";
+}
+
+function ingredientsSection(d){
+  if(!d.ingredients || !d.ingredients.length) return "";
+  const cards = d.ingredients.map(i => {
+    let body;
+    if(!d.enriched) body = `<p class="meta">Run <code>python eda_enrich.py</code> to add identifiers and links.</p>`;
+    else if(i.compound || i.parent){
+      body = matchNote(i) + compoundBlock(i.compound) + (i.parent ? compoundBlock(i.parent, "Parent compound") : "");
+      if(i.compound && !i.compound.wiki_url && i.parent && i.parent.wiki_url)
+        body = `<div class="meta">Wikipedia article is under the parent compound below.</div>` + body;
+    }
+    else if(i.status === "not_found") body = `<p class="meta">Not found in PubChem or Wikidata.</p>`;
+    else if(i.status === "found") body = `<p class="meta">Matched; identifiers are still being fetched (eda_enrich.py is running).</p>`;
+    else body = `<p class="meta">Not looked up yet.</p>`;
+    const ind = i.indication ? `<div class="snip"><b>Used for:</b> ${esc(i.indication.text.slice(0, 300))}${i.indication.text.length>300?"…":""}
+        <span class="src">— ${esc(i.indication.source||"")} via PubChem · <a href="${ingHref(i.key)}">pharmacology ›</a></span></div>` : "";
+    return `<div class="ing"><div class="ing-name"><a href="${ingHref(i.key)}" title="All products with this ingredient">${hl(i.name)}</a>
+      ${i.strength ? `<span class="tag">${esc(i.strength)}</span>` : ""}
+      ${i.eml ? `<span class="tag eml" title="On the WHO Model List of Essential Medicines">WHO essential medicine</span>` : ""}
+      ${regBadges(i.reg && {...i.reg, fda: 0, ema: 0, reg_checked: false, first_approval: null, aware: null})}
+      ${i.salt ? `<span class="meta">salt: ${esc(i.salt)}</span>` : ""}</div>${ind}${body}</div>`;
+  }).join("");
+  return `<h3>Active ingredients</h3>${cards}`;
+}
+
+// ---------------------------------------------------------------- product tables (shared)
+const ingText = r => (r.ingredients||[]).map(i => `${i.title}${i.strength?" "+i.strength:""}`).join(" + ");
+function statusTags(r){
+  return (r.license && r.license !== "Valid" ? `<span class="tag err">${esc(r.license)}</span> ` : "")
+       + (r.marketing === "Marketed" ? `<span class="tag ok">marketed</span>` : r.marketing ? `<span class="tag">not marketed</span>` : "");
+}
+function productTable(rows, {ings=true, company=true, cheapest=null, limit=50} = {}){
+  if(!rows.length) return `<p class="meta">None.</p>`;
+  const id = "pt" + Math.random().toString(36).slice(2);
+  const body = rows.map((r, n) => `<tr data-go="#/drug/${r.drug_id}" ${n>=limit?'hidden':''}>
+      <td><a href="#/drug/${r.drug_id}">${esc(r.trade_name || "#"+r.drug_id)}</a>
+        <button class="cmpbtn" data-cmp="${r.drug_id}" data-name="${esc(r.trade_name||"")}" title="Add to side-by-side comparison">${inTray(r.drug_id)?"✓":"+"}</button></td>
+      ${ings ? `<td>${esc(ingText(r))}</td>` : ""}
+      ${company ? `<td>${esc(r.company||"")}</td>` : ""}
+      <td>${esc(r.form||"")}</td>
+      <td class="num"><span class="price">${money(r.min_price)}</span>${cheapest!=null && r.min_price!=null && r.min_price===cheapest ? '<span class="cheapest">lowest</span>':''}</td>
+      <td>${statusTags(r)}</td></tr>`).join("");
+  return `<div class="sub"><table class="ptable" id="${id}"><thead><tr><th>Trade name</th>${ings?"<th>Active ingredients</th>":""}${company?"<th>Company</th>":""}
+      <th>Dosage form</th><th class="num">Lowest price</th><th>Status</th></tr></thead><tbody>${body}</tbody></table></div>
+    ${rows.length>limit ? `<button class="more" data-t="${id}">Show all ${num(rows.length)}</button>` : ""}`;
+}
+document.addEventListener("click", e => {
+  const sg = e.target.closest("a[data-sugg]");
+  if(sg){ e.preventDefault(); $("#q").value = sg.dataset.sugg; readControls(); page = 0; loadList(); return; }
+  const cb = e.target.closest("button.cmpbtn");
+  if(cb){ e.stopPropagation(); toggleTray(cb.dataset.cmp, cb.dataset.name || ""); if(location.hash.startsWith("#/compare")) pageCompare(); return; }
+  const m = e.target.closest("button.more");
+  if(m){ document.querySelectorAll(`#${m.dataset.t} tr[hidden]`).forEach(tr => tr.hidden = false); m.remove(); return; }
+  const tr = e.target.closest("tr[data-go]");
+  if(tr && !e.target.closest("a")) location.hash = tr.dataset.go;
+});
+
+function bars(items, {href=null, max=null, fmt=num} = {}){
+  if(!items.length) return `<p class="meta">No data.</p>`;
+  const top = max ?? Math.max(...items.map(i => i.count));
+  return `<div class="bars">${items.map(i => {
+    const w = top ? Math.max(0.5, 100 * i.count / top) : 0, link = href && href(i);
+    const tag = link ? `a class="row" href="${link}"` : `div class="row"`;
+    return `<${tag} title="${esc(i.label)}: ${fmt(i.count)}"><span class="bl">${esc(i.label)}</span>
+      <span class="bt"><span class="bf" style="display:block;width:${w}%"></span></span><span class="bv">${fmt(i.count)}</span></${link?"a":"div"}>`;
+  }).join("")}</div>`;
+}
+const tile = (v, l) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+
+// ---------------------------------------------------------------- drug detail + equivalents
+async function showDrug(id){
+  selected = id;
+  document.querySelectorAll("#list tbody tr").forEach(tr=>tr.classList.toggle("sel", +tr.dataset.id===id));
+  let d; try{ d = await get("/api/drug/"+id); }catch(e){ $("#detail").innerHTML=`<div class="errbox">${esc(e.message)}</div>`; return; }
+  const title = d.list["Trade Name"] || (d.detail && d.detail.fields && d.detail.fields["Name"])
+             || Object.values(d.list).find(v => v && v.trim()) || `Drug ${d.id}`;
+  const det = d.detail || {fields:{},tables:{}}, f = d.facts || {};
+  $("#detail").innerHTML = `
+    <h2>${esc(title)} <button class="cmpbtn" data-cmp="${d.id}" data-name="${esc(title)}">${inTray(d.id) ? "✓ in comparison" : "+ compare"}</button></h2>
+    <div class="meta">#${d.id} · <span class="tag">${esc(d.type)}</span> ${statusTags(f)} ${awareTag(d.aware)}
+      ${f.company ? ` · <a href="${coHref(f.company)}">${esc(f.company)}</a>` : ""}
+      ${f.min_price!=null ? ` · from <span class="price">${money(f.min_price)}</span>` : ""}
+      · found by “${esc(d.first_query)}” · ${esc(d.scraped_at)}
+      ${d.detail_url?` · <a href="${esc(d.detail_url)}" target="_blank" rel="noopener noreferrer">open on EDA site</a>`:""}</div>
+    ${d.error?`<div class="errbox">Detail page error: ${esc(d.error)}</div>`:""}
+    ${companiesBlock(d, f)}
+    ${d.ingredients && d.ingredients.length ? `<h3>Equivalents and alternatives</h3><div class="eq" id="eq"><p class="meta">Looking for products with the same active ingredients…</p></div>` : ""}
+    ${ingredientsSection(d)}
+    <h3>Detail page</h3>${kvTable(det.fields)}
+    ${Object.entries(det.tables||{}).map(([n,rows])=>`<h3>${esc(n)}</h3>${rowsTable(rows)}`).join("")}
+    <h3>Search results row</h3>${kvTable(d.list)}
+    ${d.has_html?`<h3>Saved page</h3><button id="rawbtn">Show the saved detail page</button><div id="raw"></div>`:""}`;
+  const b = $("#rawbtn");
+  if(b) b.onclick = () => { $("#raw").innerHTML = `<iframe sandbox src="/raw/${d.id}"></iframe>`; b.remove(); };
+  $("#detail").insertAdjacentHTML("beforeend", notesBlock(d.id)); bindNotes(d.id, title);
+  if(window.innerWidth <= 900) $("#detail").scrollIntoView({block: "start"});  // phones: details are below the list
+  if($("#eq")) loadEquivalents(id);
+}
+
+async function loadEquivalents(id){
+  let e; try{ e = await get("/api/equivalents/"+id); }catch(err){ $("#eq").innerHTML = `<p class="meta">${esc(err.message)}</p>`; return; }
+  if(selected !== id || !$("#eq")) return;
+  if(!e.groups.length){ $("#eq").innerHTML = `<p class="meta">${esc(e.note||"")}</p>`; return; }
+  const all = e.groups.slice(0,2).flatMap(g => g.rows).map(r => r.min_price).filter(p => p != null);
+  const cheapest = all.length ? Math.min(...all) : null;
+  const n = e.groups[0].total + e.groups[1].total;
+  let html = `<p class="meta">${n ? `${num(n)} other product${n>1?"s":""} with the same active ingredients and strength.` : "No other product has exactly the same active ingredients and strength."}
+     Salts of the same active ingredient count as equal (e.g. amoxicillin trihydrate = amoxicillin). Always check with a pharmacist before switching.</p>`;
+  e.groups.forEach((g, k) => {
+    if(!g.total) return;
+    html += `<h4>${esc(g.title)} (${num(g.total)})</h4>` +
+      productTable(g.rows, {ings: k === 2, cheapest: k < 2 ? cheapest : null, limit: 10});
+  });
+  html += `<div class="toolbar"><button id="eqlist">Show all products with these ingredients in the list</button></div>`;
+  $("#eq").innerHTML = html;
+  $("#eqlist").onclick = () => showDrugList({ings: e.ingredients.map(i => ({key:i.key, title:i.title})), only:true});
+}
+
+// ---------------------------------------------------------------- pages
+async function pageIngredient(key){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  let d; try{ d = await get("/api/ingredient?key="+encodeURIComponent(key)); }catch(e){ P.innerHTML = `<div class="errbox">${esc(e.message)}</div>`; return; }
+  const single = d.products.filter(r => r.ingredients.length === 1), combo = d.products.filter(r => r.ingredients.length > 1);
+  const prices = single.map(r => r.min_price).filter(p => p != null);
+  P.innerHTML = `
+    <div class="crumbs"><a href="#/ingredients">Ingredients</a> ›</div>
+    <h2>${esc(d.title)} ${d.eml ? `<span class="tag eml" title="On the WHO Model List of Essential Medicines">WHO essential medicine</span>` : ""}
+      ${pageTools("/api/ingredient?key=" + encodeURIComponent(d.key), "ingredient_" + d.title)}</h2>
+    ${d.compound ? compoundBlock(d.compound) : `<p class="note">${d.status === "not_found" ? "This ingredient name couldn't be matched to PubChem or Wikidata, so it has no identifiers." : "No identifiers yet."}</p>`}
+    ${d.atc.length ? `<h3>Therapeutic class (ATC)</h3>${d.atc.map(a => `<div class="crumbs">${a.path.map(p =>
+        `<a href="#/atc/${p.code}">${esc(p.code)}${p.label?" · "+esc(p.label):""}</a>`).join(" › ")}</div>`).join("")}` : ""}
+    <div class="tiles">
+      ${tile(num(d.products.length), "products")}${tile(num(single.length), "single-ingredient")}${tile(num(combo.length), "in combinations")}
+      ${prices.length ? tile(money(Math.min(...prices)), "lowest single-ingredient price") : ""}
+    </div>
+    <div class="toolbar">
+      <button class="primary" id="inlist">Show in drug list</button>
+      <button id="addcombo">Add to combination search</button>
+      ${Object.entries(d.by_type).map(([t,n]) => `<span class="tag">${esc(t)} ${num(n)}</span>`).join(" ")}
+    </div>
+    ${structureBlock(d)}
+    ${regulatorySection(d)}
+    ${pharmSection(d)}
+    ${safetySection(d)}
+    ${manufacturingSection(d)}
+    ${d.key.startsWith("cid:") && !(d.reg && d.reg.control) ? `<p class="noprint serveronly"><a class="btn" href="#/sop/${encodeURIComponent(d.key)}">SOP draft for making this substance</a>
+      <span class="meta">Markdown or web page; public data filled in, everything else left for the process chemist.</span></p>` : ""}
+    ${d.key.startsWith("name:") || window.EDA_STATIC ? "" : `<h3>Reported side effects (US FDA)</h3><div id="faers"></div>`}
+    ${chemSection(d)}
+    ${populationSection(d)}
+    <h3>Names used in EDA records</h3>
+    <div class="chips">${d.names.map(([n,c]) => `<span class="chip">${esc(n)} <span class="n">${num(c)}</span></span>`).join("")}</div>
+    ${d.co_ingredients.length ? `<h3>Most often combined with</h3><div class="chips">${d.co_ingredients.map(c =>
+        `<a class="chip" href="${ingHref(c.key)}">${esc(c.title)} <span class="n">${num(c.count)}</span></a>`).join("")}</div>` : ""}
+    <h3>Products</h3>
+    <div class="tabs"><button class="on" data-tab="s">Single ingredient (${num(single.length)})</button><button data-tab="c">Combinations (${num(combo.length)})</button></div>
+    <div id="tab-s">${productTable(single, {ings:false, cheapest: prices.length ? Math.min(...prices) : null})}</div>
+    <div id="tab-c" hidden>${productTable(combo)}</div>`;
+  P.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+    P.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+    $("#tab-s").hidden = b.dataset.tab !== "s"; $("#tab-c").hidden = b.dataset.tab !== "c";
+  });
+  $("#inlist").onclick = () => showDrugList({ings:[{key:d.key, title:d.title}]});
+  if($("#faers")) loadFaers(d.key);
+  P.querySelectorAll("a[data-pop]").forEach(a => a.onclick = e => { e.preventDefault();
+    showDrugList({ings:[{key:d.key, title:d.title}], pop: a.dataset.pop}); });
+  $("#addcombo").onclick = () => { addCombo({key:d.key, title:d.title}); location.hash = "#/ingredients"; };
+}
+
+const COMBO = [];
+function addCombo(i){ if(!COMBO.some(c => c.key === i.key)) COMBO.push(i); }
+async function pageIngredients(){
+  const P = $("#page");
+  P.innerHTML = `<h2>Ingredients</h2>
+    <p class="meta">Every active ingredient in the EDA records, grouped by compound (salts and hydrates count as their parent).
+      Open one for its identifiers and products, or pick several to find combination products.</p>
+    <div class="note" id="combo"></div>
+    <div class="toolbar"><input type="search" id="iq" placeholder="Find an ingredient: paracetamol, amoxicillin, ginkgo…" style="flex:1"></div>
+    <div id="ilist"><p class="meta">Loading…</p></div>`;
+  const drawCombo = () => {
+    $("#combo").innerHTML = COMBO.length
+      ? `<div class="chips"><b>Combination search:</b> ${COMBO.map((c,n) => `<span class="chip">${esc(c.title)}<button data-rm="${n}">×</button></span>`).join("")}
+         <label class="chk"><input type="checkbox" id="conly"> nothing else</label>
+         <button class="primary" id="cgo">Find products containing ${COMBO.length>1?"all of these":"this"}</button></div>`
+      : `Combination search: press <b>+ combine</b> on two or more ingredients, e.g. paracetamol + caffeine, to find products containing all of them.`;
+    if(COMBO.length) $("#cgo").onclick = () => showDrugList({ings: COMBO.slice(), only: $("#conly").checked});
+  };
+  $("#combo").onclick = e => { const b = e.target.closest("button[data-rm]"); if(b){ COMBO.splice(+b.dataset.rm,1); drawCombo(); } };
+  drawCombo();
+  const load = async () => {
+    const d = await get("/api/ingredients?q="+encodeURIComponent($("#iq").value.trim()));
+    $("#ilist").innerHTML = `<p class="meta">${num(d.total)} ingredients${d.total>d.rows.length?`, showing the ${d.rows.length} with most products`:""}</p>
+      <div class="sub"><table><thead><tr><th>Ingredient</th><th>Type</th><th class="num">Products</th><th></th></tr></thead><tbody>
+      ${d.rows.map(r => `<tr><td><a href="${ingHref(r.key)}">${esc(r.title)}</a></td>
+        <td>${r.kind ? `<span class="tag">${esc(r.kind)}</span>` : r.matched ? "" : `<span class="tag">not matched</span>`}</td>
+        <td class="num">${num(r.count)}</td>
+        <td><button data-add="${esc(r.key)}" data-title="${esc(r.title)}">+ combine</button></td></tr>`).join("")}</tbody></table></div>`;
+  };
+  $("#ilist").onclick = e => { const b = e.target.closest("button[data-add]"); if(b){ addCombo({key:b.dataset.add, title:b.dataset.title}); drawCombo(); } };
+  let t; $("#iq").oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };
+  load();
+}
+
+async function pageAtc(code){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/atc?code="+encodeURIComponent(code||""));
+  P.innerHTML = `
+    <div class="crumbs"><a href="#/atc">All classes</a>${d.path.map(p => ` › <a href="#/atc/${p.code}">${esc(p.code)}${p.label?" "+esc(p.label):""}</a>`).join("")}</div>
+    <h2>${code ? `${esc(d.code)} ${esc(d.label||"")}` : "Therapeutic classes (ATC)"}</h2>
+    <p class="meta">WHO Anatomical Therapeutic Chemical classes, from the ATC codes of matched ingredients.
+      ${num(d.products)} products${code?" in this class":" have at least one classified ingredient"}. Veterinary, herbal and cosmetic products mostly have no ATC code.</p>
+    ${code ? `<div class="toolbar"><button class="primary" id="atclist">Show these ${num(d.products)} products in the drug list</button></div>` : ""}
+    ${d.groups.length ? `<h3>${code ? "Sub-classes" : "Main groups"}</h3>${bars(d.groups.map(g => ({label: `${g.code}  ${g.label||""}`, count: g.products, code: g.code})), {href: g => "#/atc/"+g.code})}` : ""}
+    ${d.ingredients.length ? `<h3>Ingredients</h3>${bars(d.ingredients.map(i => ({label: i.title, count: i.count, key: i.key})), {href: i => ingHref(i.key)})}` : ""}`;
+  const b = $("#atclist"); if(b) b.onclick = () => showDrugList({atc: {code: d.code, label: d.label}});
+}
+
+// ---------------------------------------------------------------- comparison tray (kept in this browser)
+let TRAY = [];
+try{ TRAY = JSON.parse(localStorage.getItem("eda_compare") || "[]"); }catch(e){ TRAY = []; }
+const saveTray = () => { try{ localStorage.setItem("eda_compare", JSON.stringify(TRAY)); }catch(e){} drawTray(); };
+const inTray = id => TRAY.some(t => t.id === +id);
+function toggleTray(id, name){
+  id = +id;
+  if(inTray(id)) TRAY = TRAY.filter(t => t.id !== id);
+  else { if(TRAY.length >= 6){ alert("You can compare up to 6 products. Remove one first."); return; } TRAY.push({id, name}); }
+  saveTray();
+  document.querySelectorAll(`button.cmpbtn[data-cmp="${id}"]`).forEach(b =>
+    b.textContent = inTray(id) ? (b.closest("h2") ? "✓ in comparison" : "✓") : (b.closest("h2") ? "+ compare" : "+"));
+}
+function drawTray(){ $("#cmpnav").textContent = TRAY.length ? `Compare (${TRAY.length})` : "Compare"; }
+drawTray();
+
+const coLink = (name, role) => role === "manufacturer" ? `#/manufacturer/${encodeURIComponent(name)}` : coHref(name);
+const grpHref = g => "#/group/" + encodeURIComponent(g);
+
+function companiesBlock(d, f){
+  const cs = d.companies || [];
+  const st = f.storage_cat || f.shelf_months ? `<p>${f.storage_cat ? `<span class="tag">${esc(f.storage_cat)}</span> ` : ""}
+      ${f.shelf_months ? `<span class="tag">shelf life ${f.shelf_months} months</span> ` : ""}
+      ${f.protect_light ? `<span class="tag">protect from light</span> ` : ""}${f.keep_dry ? `<span class="tag">keep dry</span>` : ""}
+      ${f.storage_text ? `<div class="snip">${esc(f.storage_text)}</div>` : ""}</p>` : "";
+  const sp = f.species ? `<p><b>Target species:</b> ${f.species.split("; ").map(x => `<a class="chip" href="#/vet/${encodeURIComponent(x)}">${esc(x)}</a>`).join(" ")}</p>` : "";
+  const rows = cs.map(c => `<tr><td>${esc(c.role)}</td>
+      <td><a href="${coLink(c.name, /Manufacturer/.test(c.role) ? "manufacturer" : "applicant")}">${esc(c.name)}</a>
+        ${c.grp ? `<a class="tag" href="${grpHref(c.grp)}">${esc(c.grp)}</a>` : ""}</td><td>${esc(c.country||"")}</td></tr>`).join("");
+  return `<h3>Companies, origin and storage</h3>
+    <p>Applicant: <a href="${coHref(f.company||"")}">${esc(f.company||"")}</a>
+      ${f.company_group ? ` · group <a href="${grpHref(f.company_group)}">${esc(f.company_group)}</a>` : ""}
+      ${f.origin ? ` · <span class="tag">${esc(f.origin)}${f.mfr_country && f.origin==="Imported" ? " from "+esc(f.mfr_country) : ""}</span>` : ""}</p>
+    ${rows ? `<div class="sub"><table><thead><tr><th>Role</th><th>Company</th><th>Country</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+    ${st}${sp}`;
+}
+
+// ---------------------------------------------------------------- companies, manufacturers, groups
+const TYPE_LABELS = {medicines: "All except cosmetics", "": "All types", human: "Human", veterinary: "Veterinary",
+  biological: "Biological", herbal: "Herbal", complementary: "Complementary", biocides: "Biocides", cosmetics: "Cosmetics"};
+async function pageCompanies(by){
+  by = by || "applicant";
+  const P = $("#page");
+  const labels = {applicant: "Applicants (licence holders)", manufacturer: "Manufacturers", group: "Corporate groups"};
+  let pref = {}; try { pref = JSON.parse(localStorage.getItem("coFilter") || "{}"); } catch(e) {}
+  const type0 = pref.type ?? "medicines", origin0 = pref.origin || "";
+  P.innerHTML = `<h2>Companies</h2>
+    <div class="tabs">${Object.entries(labels).map(([k,l]) => `<a class="btn ${k===by?"primary":""}" href="#/companies/${k}">${l}</a>`).join("")}</div>
+    <p class="meta">${by === "group" ? "Conglomerates and their member companies. Only links confirmed by a published source are used (see company_groups.tsv)."
+      : by === "manufacturer" ? "Factories named as manufacturer on each product, with their country."
+      : "Applicants as written in the EDA records; spellings that differ only in case or punctuation are merged."}
+      Counts cover the product type and origin chosen below; cosmetics are left out by default because they outnumber medicines about three to one.</p>
+    <div class="toolbar"><input type="search" id="cq" placeholder="Find…" style="flex:1">
+      <select id="ctype" aria-label="Product type">${Object.entries(TYPE_LABELS).map(([v,l]) => `<option value="${v}" ${v===type0?"selected":""}>${l}</option>`).join("")}</select>
+      <select id="corigin" aria-label="Origin"><option value="">Made anywhere</option>
+        <option ${origin0==="Imported"?"selected":""}>Imported</option><option ${origin0==="Made in Egypt"?"selected":""}>Made in Egypt</option></select></div>
+    <div id="clist"></div>`;
+  const load = async () => {
+    const type = $("#ctype").value, origin = $("#corigin").value;
+    try { localStorage.setItem("coFilter", JSON.stringify({type, origin})); } catch(e) {}
+    const d = await get(`/api/companies?by=${by}&type=${encodeURIComponent(type)}&origin=${encodeURIComponent(origin)}&q=` + encodeURIComponent($("#cq").value.trim()));
+    const listFor = r => by === "group" ? {group: r.name} : by === "manufacturer" ? {mfr: r.name} : {ckey: r.key};
+    const showLink = (r, extra, text) => `<a href="#" data-show='${esc(JSON.stringify({...listFor(r), type, origin, ...extra}))}'>${text}</a>`;
+    const summary = d.products != null ? `<p class="meta">${num(d.products)} products of this type, ${num(d.imported)} of them imported
+        (<a href="#" data-show='${esc(JSON.stringify({type, origin: "Imported"}))}'>show the imported products</a>).</p>` : "";
+    if(by === "group"){
+      $("#clist").innerHTML = `<div class="sub"><table><thead><tr><th>Group</th><th class="num">Companies</th><th class="num">Products</th><th class="num">Imported</th></tr></thead><tbody>
+        ${d.rows.map(r => `<tr><td><a href="${grpHref(r.name)}">${esc(r.name)}</a></td><td class="num">${num(r.members)}</td>
+          <td class="num">${showLink(r, {}, num(r.n))}</td><td class="num">${r.imported ? showLink(r, {origin: "Imported"}, num(r.imported)) : "0"}</td></tr>`).join("")}</tbody></table></div>`;
+    } else {
+      $("#clist").innerHTML = `${summary}<p class="meta">${num(d.total)} ${by === "manufacturer" ? "manufacturers" : "companies"}${d.total>d.rows.length?`, showing the ${d.rows.length} largest`:""}</p>
+        <div class="sub"><table><thead><tr><th>${by === "manufacturer" ? "Manufacturer" : "Company"}</th>${by === "manufacturer" ? "<th>Country</th>" : ""}<th>Group</th><th class="num">Products</th><th class="num">Imported</th></tr></thead><tbody>
+        ${d.rows.map(r => `<tr><td><a href="${coLink(r.name, by)}">${esc(r.name)}</a></td>${by === "manufacturer" ? `<td>${esc(r.country||"")}</td>` : ""}
+          <td>${r.grp ? `<a href="${grpHref(r.grp)}">${esc(r.grp)}</a>` : ""}</td>
+          <td class="num">${showLink(r, {}, num(r.n))}</td>
+          <td class="num">${r.imported ? showLink(r, {origin: "Imported"}, num(r.imported)) : "0"}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+    $("#clist").querySelectorAll("[data-show]").forEach(a => a.onclick = e => {
+      e.preventDefault();
+      const o = JSON.parse(a.dataset.show); Object.keys(o).forEach(k => { if(!o[k]) delete o[k]; });
+      showDrugList(o);
+    });
+  };
+  let t; $("#cq").oninput = () => { clearTimeout(t); t = setTimeout(load, 250); };
+  $("#ctype").onchange = load; $("#corigin").onchange = load;
+  load();
+}
+
+function portfolioHtml(d){
+  return `<div class="tiles">${tile(num(d.total), "products")}${tile(num(d.distinct_ingredients), "distinct active ingredients")}
+      ${tile(num(d.eml_products), "with a WHO essential medicine")}</div>
+    <div class="grid2">
+      <div><h3>Product types</h3>${bars(d.by_type)}</div>
+      <div><h3>Therapeutic classes</h3>${bars(d.by_atc.map(a => ({...a, label: `${a.code}  ${a.label}`})), {href: a => "#/atc/"+a.code})}</div>
+      <div><h3>Top active ingredients</h3>${bars(d.top_ingredients.map(i => ({label: i.title, count: i.count, key: i.key})), {href: i => ingHref(i.key)})}</div>
+      <div><h3>Dosage forms</h3>${bars(d.by_form)}</div>
+      <div><h3>Manufacturing country</h3>${bars(d.by_origin)}</div>
+      <div><h3>Storage</h3>${bars(d.by_storage)}<h3>Licence status</h3>${bars(d.by_license)}</div>
+    </div>`;
+}
+
+async function pageCompany(name, role){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  let d; try{ d = await get(`/api/company?role=${role||"applicant"}&name=` + encodeURIComponent(name)); }catch(e){ P.innerHTML = `<div class="errbox">${esc(e.message)}</div>`; return; }
+  const other = d.role === "manufacturer" ? (d.as_applicant ? `<a href="${coHref(d.name)}">Also applicant for ${num(d.as_applicant)} products ›</a>` : "")
+                                          : (d.as_manufacturer ? `<a href="#/manufacturer/${encodeURIComponent(d.name)}">Also named as manufacturer on ${num(d.as_manufacturer)} products ›</a>` : "");
+  P.innerHTML = `
+    <div class="crumbs"><a href="#/companies/${d.role === "manufacturer" ? "manufacturer" : "applicant"}">${d.role === "manufacturer" ? "Manufacturers" : "Companies"}</a> ›
+      ${d.group ? `<a href="${grpHref(d.group)}">${esc(d.group)}</a> ›` : ""}</div>
+    <h2>${esc(d.name)} ${pageTools(`/api/company?role=${d.role}&name=${encodeURIComponent(d.name)}`, d.name)}</h2>
+    <p class="meta">${d.role === "manufacturer" ? "As manufacturer" : "As applicant (licence holder in Egypt)"} · ${other}</p>
+    <div class="toolbar"><button class="primary" id="colist">Show in drug list</button></div>
+    ${portfolioHtml(d)}
+    <h3>${esc(d.partner_label)}</h3>${bars(d.partners)}
+    <h3>Products</h3>${productTable(d.products, {company: d.role === "manufacturer"})}`;
+  $("#colist").onclick = () => showDrugList(d.role === "manufacturer" ? {mfr: d.name} : {ckey: {key: d.key, name: d.name}});
+}
+
+async function pageGroup(name){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  let d; try{ d = await get("/api/group?name=" + encodeURIComponent(name)); }catch(e){ P.innerHTML = `<div class="errbox">${esc(e.message)}</div>`; return; }
+  P.innerHTML = `
+    <div class="crumbs"><a href="#/companies/group">Corporate groups</a> ›</div>
+    <h2>${esc(d.name)} ${pageTools("/api/group?name=" + encodeURIComponent(d.name), d.name)}</h2>
+    <h3>Member companies</h3>${bars(d.members.map(m => ({label: m.name, count: m.n})), {href: m => coHref(m.label)})}
+    ${d.sources.length ? `<p class="src">Sources: ${d.sources.map(u => /^https?:/.test(u) ? ext(u, new URL(u).hostname) : esc(u)).join(" · ")}</p>` : ""}
+    <div class="toolbar"><button class="primary" id="grlist">Show in drug list</button></div>
+    ${portfolioHtml(d)}
+    <h3>Products</h3>${productTable(d.products)}`;
+  $("#grlist").onclick = () => showDrugList({group: d.name});
+}
+
+// ---------------------------------------------------------------- origin
+async function pageCountries(){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/countries");
+  const o = Object.fromEntries(d.by_origin.map(x => [x.label, x.count]));
+  P.innerHTML = `<h2>Country of origin ${pageTools("/api/countries", "origin")}</h2>
+    <p class="meta">From the manufacturer named on each product (the first manufacturer when several are listed). Most cosmetics records don't name one.</p>
+    <div class="tiles">${tile(num(o["Made in Egypt"]||0), "made in Egypt")}${tile(num(o["Imported"]||0), "imported")}${tile(num(o["Not stated"]||0), "no manufacturer listed")}</div>
+    <div class="grid2">
+      <div><h3>Manufacturing country (products)</h3>${bars(d.by_country.slice(0, 40), {href: c => "#/list/country/" + encodeURIComponent(c.label)})}</div>
+      <div><h3>Local vs imported, by product type</h3>
+        <div class="sub"><table><thead><tr><th>Type</th><th class="num">Made in Egypt</th><th class="num">Imported</th><th class="num">Imported share</th></tr></thead><tbody>
+        ${d.by_origin_type.map(r => `<tr><td>${esc(r.drug_type)}</td><td class="num">${num(r.local)}</td><td class="num">${num(r.imported)}</td>
+          <td class="num">${r.local + r.imported ? Math.round(100 * r.imported / (r.local + r.imported)) + "%" : "–"}</td></tr>`).join("")}</tbody></table></div></div>
+    </div>`;
+}
+
+// ---------------------------------------------------------------- veterinary
+async function pageVet(species){
+  if(species){ showDrugList({type: "veterinary", species}); return; }
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/vet");
+  P.innerHTML = `<h2>Veterinary products ${pageTools("/api/vet", "veterinary")}</h2>
+    <div class="tiles">${tile(num(d.total), "veterinary products")}${tile(num(d.species.length), "target species named")}${tile(num(d.no_species), "with no species listed")}</div>
+    <div class="toolbar"><button class="primary" id="vetlist">Show all veterinary products</button></div>
+    <div class="grid2">
+      <div><h3>Target species</h3>${bars(d.species, {href: s => "#/vet/" + encodeURIComponent(s.label)})}</div>
+      <div><h3>Most common active ingredients</h3>${bars(d.ingredients, {href: i => ingHref(i.key)})}</div>
+      <div><h3>Dosage forms</h3>${bars(d.forms)}</div>
+      <div><h3>Route</h3>${bars(d.routes)}<h3>Origin</h3>${bars(d.origin)}</div>
+      <div><h3>Largest companies</h3>${bars(d.companies, {href: c => coHref(c.label)})}</div>
+    </div>`;
+  $("#vetlist").onclick = () => showDrugList({type: "veterinary"});
+}
+
+// ---------------------------------------------------------------- what it treats
+async function pageTreats(q){
+  const P = $("#page");
+  P.innerHTML = `<h2>What it treats</h2>
+    <p class="meta">Search the indications and therapeutic uses PubChem collects (from DrugBank, HSDB, StatPearls, MeSH and others) — e.g. hypertension, malaria, asthma, acne.
+      This is reference information, not prescribing advice.</p>
+    <div class="toolbar"><input type="search" id="tq" placeholder="A condition or use: hypertension, diabetes, fever, scabies…" style="flex:1" value="${esc(q||"")}"></div>
+    <div id="tlist"></div>`;
+  const load = async () => {
+    const v = $("#tq").value.trim();
+    if(v.length < 3){ $("#tlist").innerHTML = `<p class="meta">Type at least 3 letters.</p>`; return; }
+    history.replaceState(null, "", "#/treats/" + encodeURIComponent(v));
+    const d = await get("/api/treats?q=" + encodeURIComponent(v));
+    $("#tlist").innerHTML = d.note ? `<p class="note">${esc(d.note)}</p>` : !d.rows.length ? `<p class="meta">No ingredient mentions “${esc(v)}”.</p>` :
+      `<div class="toolbar"><b>${num(d.rows.length)} ingredients · ${num(d.products)} products</b>
+         <button class="primary" id="tgo">Show these products in the drug list</button></div>
+       <div class="sub"><table><thead><tr><th>Ingredient</th><th>Where it's mentioned</th><th class="num">Products</th></tr></thead><tbody>
+       ${d.rows.map(r => `<tr><td><a href="${ingHref(r.key)}">${esc(r.title)}</a> ${r.eml ? '<span class="tag eml">WHO EML</span>' : ""}</td>
+         <td><div class="snip">${esc(r.snippet||"").replace(new RegExp(v.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"), "gi"), m => `<mark>${m}</mark>`)}</div>
+           <span class="src">${esc(r.sections.join(", "))} — ${esc(r.source||"")}</span></td><td class="num">${num(r.count)}</td></tr>`).join("")}</tbody></table></div>`;
+    const b = $("#tgo"); if(b) b.onclick = () => showDrugList({treats: v});
+  };
+  let t; $("#tq").oninput = () => { clearTimeout(t); t = setTimeout(load, 350); };
+  load();
+}
+
+function pharmSection(d){
+  if(!d.pharm || !d.pharm.length) return d.key.startsWith("cid:") ? `<p class="meta">No pharmacology data from PubChem${""} yet.</p>` : "";
+  return `<h3>Indications and pharmacology (PubChem)</h3>
+    <p class="src">Collected by PubChem from the sources named under each entry. Reference information, not prescribing advice.</p>
+    ${d.pharm.map((s, n) => `<details class="ph" ${n < 2 ? "open" : ""}><summary>${esc(s.section)}</summary>
+      ${s.items.map(it => `<div class="it">${esc(it.text)}<div class="src">— ${it.url ? ext(it.url, it.source||"source") : esc(it.source||"")}</div></div>`).join("")}
+    </details>`).join("")}`;
+}
+
+// ---------------------------------------------------------------- side-by-side comparison
+async function pageCompare(){
+  const P = $("#page");
+  if(!TRAY.length){ P.innerHTML = `<h2>Compare products</h2><p class="meta">Press <b>+ compare</b> on a product (in its detail panel or any product table) to add it here. Up to 6.</p>`; return; }
+  P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/compare?ids=" + TRAY.map(t => t.id).join(","));
+  const ps = d.products;
+  const pkg = r => r.packages.map(x => `${x.Pack || ""} ${x.Price ? "— " + money(x.Price) : ""}`).join("<br>");
+  const comp = (r, re) => r.companies.filter(c => re.test(c.role)).map(c => `${esc(c.name)}${c.country ? " ("+esc(c.country)+")" : ""}`).join("<br>");
+  const ROWS = [
+    ["Active ingredients", r => r.ingredients.map(i => `<a href="${ingHref(i.key)}">${esc(i.title)}</a> ${esc(i.strength)}`).join("<br>"), r => ingText(r)],
+    ["Dosage form", r => esc(r.form||"")], ["Route", r => esc(r.route||"")],
+    ["Lowest pack price", r => money(r.min_price)], ["Packs and prices", pkg],
+    ["Applicant", r => `<a href="${coHref(r.company||"")}">${esc(r.company||"")}</a>`, r => r.company],
+    ["Corporate group", r => r.company_group ? `<a href="${grpHref(r.company_group)}">${esc(r.company_group)}</a>` : "", r => r.company_group],
+    ["Manufacturer", r => comp(r, /Manufacturer/)], ["Origin", r => esc(r.origin||"")],
+    ["Storage", r => esc(r.storage_cat||"")], ["Storage text", r => esc(r.storage_text||"")],
+    ["Shelf life", r => r.shelf_months ? `${r.shelf_months} months` : ""],
+    ["Registration no", r => esc(r.reg_no||"")], ["Licence", r => esc(r.license||"")], ["Marketing", r => esc(r.marketing||"")],
+    ["WHO essential medicine", r => r.eml ? "Yes (contains one)" : ""], ["Target species", r => esc(r.species||"")],
+    ["Type", r => esc(r.drug_type||"")],
+  ];
+  const body = ROWS.map(([label, fn, key]) => {
+    const vals = ps.map(fn), keys = ps.map(key || fn);
+    if(vals.every(v => !v)) return "";
+    const differs = new Set(keys.map(String)).size > 1;
+    return `<tr><th class="rowh">${label}</th>${vals.map(v => `<td class="${differs ? "diff" : ""}">${v || '<span class="meta">–</span>'}</td>`).join("")}</tr>`;
+  }).join("");
+  const ix = d.interactions || [];
+  const ixHtml = `<h3>Interactions between these ingredients (PubChem)</h3>
+    <p class="src">Found by looking for each ingredient's name in the other ingredients' interaction texts (HSDB, via PubChem).
+      An empty list does not mean there is no interaction — check a full interaction reference.</p>
+    ${ix.length ? ix.map(x => `<div class="ix"><b><a href="${ingHref(x.a_key)}">${esc(x.a)}</a> ↔ <a href="${ingHref(x.b_key)}">${esc(x.b)}</a></b>
+      <div>${esc(x.text)}</div><div class="src">— ${esc(x.source||"")}</div></div>`).join("") : `<p class="meta">None found in the interaction texts.</p>`}`;
+  P.innerHTML = `<h2>Compare products</h2>
+    <p class="meta">Highlighted rows differ between the products.</p>
+    <div class="toolbar"><button id="cmpclear">Clear comparison</button></div>
+    <div class="sub"><table class="cmp-t"><thead><tr><th class="rowh"></th>${ps.map(r => `<th><a href="#/drug/${r.drug_id}">${esc(r.trade_name||"#"+r.drug_id)}</a>
+      <button class="cmpbtn" data-cmp="${r.drug_id}">remove</button></th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>${ixHtml}`;
+  $("#cmpclear").onclick = () => { TRAY = []; saveTray(); pageCompare(); };
+}
+
+async function pageStats(){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading statistics…</p>`;
+  const d = await get("/api/dashboard");
+  const en = Object.fromEntries(d.enrich.map(x => [x.label, x.count]));
+  const enTotal = d.enrich.reduce((s, x) => s + x.count, 0);
+  const pct = (a, b) => b ? Math.round(100 * a / b) + "%" : "–";
+  P.innerHTML = `<h2>Statistics ${pageTools("/api/dashboard", "statistics")}</h2>
+    <div class="tiles">
+      ${tile(num(d.total), "registered products")}
+      ${tile(num(d.with_ingredients), "with an active-ingredient list")}
+      ${tile(num(d.with_price), "with a pack price")}
+      ${enTotal ? tile(pct(en.found||0, enTotal), `of ${num(enTotal)} ingredient names linked to references`) : ""}
+    </div>
+    <div class="grid2">
+      <div><h3>Products by type</h3>${bars(d.by_type, {href: t => null})}</div>
+      <div><h3>Therapeutic classes (products)</h3>${bars(d.by_atc.map(a => ({...a, label: `${a.code}  ${a.label}`})), {href: a => "#/atc/"+a.code})}</div>
+      <div><h3>Most common active ingredients</h3>${bars(d.top_ingredients, {href: i => ingHref(i.key)})}</div>
+      <div><h3>Largest companies</h3>${bars(d.top_companies, {href: c => coHref(c.label)})}</div>
+      <div><h3>Dosage forms (medicines)</h3>${bars(d.top_forms)}</div>
+      <div><h3>Licence status</h3>${bars(d.by_license)}<h3>Marketing status (where given)</h3>${bars(d.by_marketing)}</div>
+      <div><h3>Largest corporate groups</h3>${bars(d.top_groups, {href: g => grpHref(g.label)})}</div>
+      <div><h3>Origin</h3>${bars(d.by_origin)}<h3>Top importing countries</h3>${bars(d.top_countries, {href: c => "#/list/country/" + encodeURIComponent(c.label)})}</div>
+      <div><h3>Storage (medicines and other non-cosmetics)</h3>${bars(d.by_storage, {href: s => s.label === "Not stated" ? null : "#/list/storage/" + encodeURIComponent(s.label)})}</div>
+      <div><h3>References</h3><p>${num(d.eml_products)} products contain a WHO essential medicine
+        (<a href="#/list/eml/1">show</a>). PubChem indications and pharmacology downloaded for ${num(d.pharm)} compounds.</p></div>
+    </div>
+    <h3>Data quality</h3>
+    <div class="grid2">
+      <div>
+        <p>${num(d.dup_reg.numbers)} registration numbers are used by more than one product of the same type (${num(d.dup_reg.products)} products), and ${num(d.no_reg)} products have none.
+           Placeholders such as “0” account for some of these.</p>
+        ${bars(d.dup_reg.examples)}
+      </div>
+      <div>
+        <p>Ingredient matching: ${d.enrich.map(x => `${esc(x.label)} ${num(x.count)}`).join(" · ") || "not run"}.</p>
+        ${d.unmatched_top.length ? `<p class="meta">Unmatched ingredient names in the most products:</p>${bars(d.unmatched_top, {href: i => ingHref(i.key)})}` : ""}
+      </div>
+    </div>`;
+}
+
+// ---------------------------------------------------------------- structure + label links + safety + populations
+function structureBlock(d){
+  const name = encodeURIComponent((d.compound && d.compound.title) || d.title);
+  const links = `<div class="toolbar">
+      ${ext(`https://dailymed.nlm.nih.gov/dailymed/search.cfm?query=${name}`, "US labels (DailyMed) ↗")}
+      ${ext(`https://www.ema.europa.eu/en/search?search_api_fulltext=${name}`, "EU assessment reports (EMA) ↗")}
+      ${ext(`https://clinicaltrials.gov/search?intr=${name}`, "Clinical trials ↗")}</div>`;
+  if(!d.structure) return links;
+  return `<figure class="struct"><img src="${structUrl(d.key)}" alt="Chemical structure of ${esc(d.title)}" width="420" height="300">
+      <figcaption class="src">2D structure drawn with RDKit from the PubChem SMILES</figcaption></figure>${links}`;
+}
+
+function safetySection(d){
+  if(!d.safety || !d.safety.length) return "";
+  return `<h3>Safety (PubChem)</h3>
+    <p class="src">Liver toxicity (LiverTox), pregnancy and breastfeeding (LactMed), interactions and special-risk groups (HSDB) and more, as collected by PubChem.
+      Reference information, not prescribing advice.</p>
+    ${d.safety.map((s, n) => `<details class="ph" ${n < 1 ? "open" : ""}><summary>${esc(s.section)}</summary>
+      ${s.items.map(it => `<div class="it">${esc(it.text)}<div class="src">— ${it.url ? ext(it.url, it.source||"source") : esc(it.source||"")}</div></div>`).join("")}
+    </details>`).join("")}`;
+}
+
+// ---------------------------------------------------------------- SOP draft
+async function pageSop(arg){
+  const [key, file] = arg.split("|");
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading the SOP (fetching hazard data from PubChem the first time)…</p>`;
+  const q = "key=" + encodeURIComponent(key) + (file ? "&file=" + encodeURIComponent(file) : "");
+  let d;
+  try { d = await get("/api/sop?" + q); }
+  catch(e){ P.innerHTML = `<p class="meta">Could not load the SOP: ${esc(e.message)}</p>`; return; }
+  const back = `<a href="${ingHref(key)}">← back to the ingredient</a>`;
+  if(d.blocked){ P.innerHTML = `<p>${back}</p><h2>SOP draft</h2><p>${esc(d.blocked)}</p>`; return; }
+  const F = d.files, href = f => "#/sop/" + encodeURIComponent(key + "|" + f);
+  const decTag = r => !r || !r.decision ? "" : r.decision.startsWith("READY")
+      ? `<span class="tag ok">QA r${r.round}: ready for human QA review</span>`
+      : `<span class="tag warn">QA r${r.round}: returned to process chemist</span>`;
+  let status = "";
+  if(F && F.versions.length){
+    const latest = F.versions[0];
+    const opts = [...F.versions.map(v => [v.file, `Version ${v.version} (${v.author})${v.review ? " · QA r" + v.review.round + ": " + (v.review.decision||"").toLowerCase() : ""}`]),
+                  ...F.reviews.map(r => [r.file, `QA review r${r.round} (of version 0.${r.of_version})`]),
+                  ...F.versions.filter(v => v.notes).map(v => [v.notes, `Chemist notes for version ${v.version}`]),
+                  ["generated", "Freshly generated draft (from current data)"]];
+    status = `<div class="sopstatus noprint">
+        <div><b>Latest: version ${esc(latest.version)}</b> (${esc(latest.author)}) ${decTag(latest.review) || `<span class="tag">not yet reviewed by QA</span>`}
+          ${F.stopped ? `<span class="tag warn">process chemist stopped (see STOPPED.md)</span>` : ""}</div>
+        <label>Show <select id="sopfile">${opts.map(([f, l]) => `<option value="${esc(f)}" ${f === d.file ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></label>
+        ${d.counts ? `<div class="meta">${num(d.counts.proposed)} <span class="mk mk-proposed">⟦PROPOSED⟧</span> marks (to verify in the lab) ·
+          ${num(d.counts.site)} <span class="mk mk-site">⟦SITE⟧</span> marks (for the site to fill). Saved in <code>${esc(F.folder)}</code>.</div>` : ""}
+      </div>`;
+  }
+  const isDoc = d.kind === "version" || d.kind === "generated";
+  P.innerHTML = `<p class="noprint">${back}</p>${status}
+    <div class="toolbar noprint">
+      <a class="btn primary" href="/api/sop.md?${q}">Download Markdown (.md)</a>
+      <a class="btn" href="/api/sop.html?${q}">Download web page (.html)</a>
+      <button id="sopcopy">Copy Markdown</button>
+      <button onclick="window.print()">Print</button>
+    </div>
+    ${d.kind === "generated" ? `<p class="meta noprint">${d.has_route ? "Includes PubChem's published route summary." : "PubChem has no published route for this substance; that section is left blank."}
+      ${d.has_hazards ? "Workplace hazard data is from PubChem." : "PubChem has no workplace hazard data for it."}
+      Yellow <span class="mk mk-to">⟦TO COMPLETE⟧</span> marks are for the process chemist and QA.
+      ${F && F.versions.length ? "" : "Run <code>/sop-cycle " + esc(d.title.toLowerCase()) + "</code> in Claude Code to have the process-chemist and QA agents complete it."}</p>` : ""}
+    ${isDoc ? "" : `<p class="meta noprint">${d.kind === "review" ? "QA reviewer's findings report." : "Process chemist's notes: sources, proposed values and open questions."}</p>`}
+    <article class="sopdoc">${d.html}</article>`;
+  const sel = $("#sopfile"); if(sel) sel.onchange = () => { location.hash = href(sel.value); };
+  $("#sopcopy").onclick = async () => {
+    try { await navigator.clipboard.writeText(d.md); $("#sopcopy").textContent = "Copied"; }
+    catch(e){ $("#sopcopy").textContent = "Copy failed"; }
+  };
+}
+
+function manufacturingSection(d){
+  if(!d.manufacturing || !d.manufacturing.length) return "";
+  return `<h3>Manufacturing (PubChem)</h3>
+    <p class="src">How the substance is made, known impurities and the forms it is supplied in, mostly from the Hazardous Substances Data Bank (HSDB).
+      These describe industrial routes in general, not how any registered product is made.</p>
+    ${d.manufacturing.map((s, n) => `<details class="ph" ${n < 1 ? "open" : ""}><summary>${esc(s.section)}</summary>
+      ${s.items.map(it => `<div class="it">${esc(it.text)}<div class="src">— ${it.url ? ext(it.url, it.source||"source") : esc(it.source||"")}</div></div>`).join("")}
+    </details>`).join("")}`;
+}
+
+function populationSection(d){
+  const p = d.populations || {};
+  if(!Object.keys(p).length) return "";
+  return `<h3>Forms for special needs</h3>
+    <p class="src">Judged from each product's dosage form (and paediatric trade names). Check the leaflet for age limits and doses.</p>
+    <div class="grid2">${Object.entries(p).map(([k, e]) => `<div><b>${esc(e.label)}</b> — ${num(e.count)} products
+      <a href="#" data-pop="${k}">show</a>${bars(e.forms.slice(0, 8).map(([f, n]) => ({label: f, count: n})))}</div>`).join("")}</div>`;
+}
+
+// ---------------------------------------------------------------- market and supply
+async function pageMarket(type){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/market?type=" + encodeURIComponent(type || ""));
+  const ingTable = (rows, cols) => `<div class="sub"><table><thead><tr><th>Ingredient</th>${cols.map(c => `<th class="${c[2]||""}">${c[0]}</th>`).join("")}</tr></thead><tbody>
+    ${rows.map(r => `<tr><td><a href="${ingHref(r.key)}">${esc(r.title)}</a> ${r.eml ? '<span class="tag eml">WHO EML</span>' : ""}</td>
+      ${cols.map(c => `<td class="${c[2]||""}">${c[1](r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  P.innerHTML = `<h2>Market and supply ${pageTools("/api/market?type=" + encodeURIComponent(type||""), "market_supply")}</h2>
+    <p class="meta">Active ingredients in products with a valid licence. Companies in the same corporate group count as one supplier.
+      Essential medicines (WHO list) are listed first. No prices are used.</p>
+    <div class="tabs">${["", ...["human","veterinary","biological","herbal"]].map(t => `<a class="btn ${t === (type||"") ? "primary" : ""}" href="#/market/${t}">${t || "All medicines"}</a>`).join("")}</div>
+    <div class="tiles">${tile(num(d.ingredients), "active ingredients")}${tile(num(d.single_source_total), "with a single supplier")}
+      ${tile(num(d.import_only_total), "imported only (no local manufacturer)")}${tile(num(d.not_marketed_total), "product groups registered but none marketed")}</div>
+    <div class="grid2">
+      <div><h3>How many suppliers each ingredient has</h3>${bars(d.competition)}</div>
+      <div><h3>Most suppliers</h3>${bars(d.most_competitive.map(r => ({label: r.title, count: r.suppliers, key: r.key})), {href: r => ingHref(r.key)})}</div>
+    </div>
+    <h3>Single-source ingredients (${num(d.single_source_total)})</h3>
+    <p class="src">Only one company or group holds valid licences: a problem at that supplier can mean a shortage.</p>
+    ${ingTable(d.single_source.slice(0, 150), [["Supplier", r => `<a href="${r.top_is_group ? grpHref(r.top_supplier) : coHref(r.top_supplier)}">${esc(r.top_supplier)}</a>`],
+      ["Products", r => num(r.products), "num"], ["Marketed", r => num(r.marketed), "num"], ["Imported", r => num(r.imported), "num"]])}
+    <h3>Imported only (${num(d.import_only_total)})</h3>
+    <p class="src">Every product with a stated manufacturer is made abroad — candidates for local manufacturing.</p>
+    ${ingTable(d.import_only.slice(0, 150), [["Suppliers", r => num(r.suppliers), "num"], ["Products", r => num(r.products), "num"], ["Marketed", r => num(r.marketed), "num"]])}
+    <h3>Registered but not marketed (${num(d.not_marketed_total)})</h3>
+    <p class="src">Same ingredients and strengths where every product with a marketing status is “Not Marketed” (marketing status is given for about 13,000 products).</p>
+    <div class="sub"><table><thead><tr><th>Ingredients and strengths</th><th class="num">Products</th><th></th></tr></thead><tbody>
+    ${d.not_marketed_gaps.slice(0, 150).map(g => `<tr><td>${esc(g.ingredients)} ${g.eml ? '<span class="tag eml">WHO EML</span>' : ""}</td>
+      <td class="num">${num(g.products)}</td><td><a href="#/drug/${g.example}">example ›</a></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// ---------------------------------------------------------------- data-quality review
+async function postJSON(url, body){
+  const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const j = await r.json(); if(!r.ok) throw new Error(j.error || r.status); return j;
+}
+async function pageQuality(){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/quality");
+  const typeOpts = `<option value="chem">chemical / typo / brand</option><option value="taxon">plant or animal source</option>
+    <option value="item">biologic / material</option><option value="related">component of a product (e.g. vaccine)</option>`;
+  P.innerHTML = `<h2>Data quality review ${pageTools("/api/quality", "data_quality")}</h2>
+    <p class="meta">Things that need a human eye. Fixes are saved to <code>ingredient_aliases.tsv</code> and <code>company_groups.tsv</code> next to the viewer.</p>
+    <div class="tiles">${tile(num(d.unmatched.length), "unmatched ingredient names")}${tile(num(d.country_conflicts.length), "manufacturers with more than one country")}
+      ${tile(num(d.duplicate_reg.length), "repeated registration numbers (top 200)")}${tile(num(d.no_manufacturer), "medicines with no manufacturer listed")}</div>
+
+    <h3>Unmatched ingredient names</h3>
+    <p class="src">Give the standard name (or the plant/animal species, or the product it belongs to), then re-run matching.</p>
+    <div class="sub"><table><thead><tr><th>EDA name</th><th class="num">Products</th><th>Standard name(s) — use “ | ” for alternatives</th><th>Type</th><th>Note</th><th></th></tr></thead><tbody>
+      ${d.unmatched.map((u, n) => `<tr><td><a href="${ingHref("name:" + u.name)}">${esc(u.raw_name)}</a>${u.status === "error" ? ' <span class="tag err">lookup error</span>' : ""}</td>
+        <td class="num">${num(u.drug_count)}</td><td><input id="al-l${n}" style="width:100%"></td>
+        <td><select id="al-t${n}">${typeOpts}</select></td><td><input id="al-n${n}"></td>
+        <td><button data-alias="${n}" data-name="${esc(u.raw_name)}">Save</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="toolbar"><button class="primary" id="retry" ${d.retry.running ? "disabled" : ""}>Re-run matching for unmatched names</button>
+      <span class="meta" id="retrymsg">${d.retry.running ? `Running since ${esc(d.retry.started)}…` : d.retry.finished ? `Last run finished at ${esc(d.retry.finished)}.` : ""}</span></div>
+
+    <h3>Companies without a corporate group (largest first)</h3>
+    <p class="src">Only add a group when a source confirms the ownership; put the link in “source”.</p>
+    <div class="sub"><table><thead><tr><th>Company</th><th class="num">Products</th><th>Group</th><th>Source (URL)</th><th></th></tr></thead><tbody>
+      ${d.ungrouped_companies.map((c, n) => `<tr><td><a href="${coHref(c.name)}">${esc(c.name)}</a></td><td class="num">${num(c.n)}</td>
+        <td><input id="cg-g${n}" list="grouplist"></td><td><input id="cg-s${n}"></td>
+        <td><button data-cgroup="${n}" data-name="${esc(c.name)}">Save</button></td></tr>`).join("")}</tbody></table></div>
+    <datalist id="grouplist"></datalist>
+
+    <h3>Manufacturers listed with more than one country</h3>
+    <p class="src">Multinationals really do have plants in several countries; a local company with one stray country is usually a data-entry slip.</p>
+    <div class="sub"><table><thead><tr><th>Manufacturer</th><th>Countries (products)</th><th class="num">Products</th></tr></thead><tbody>
+      ${d.country_conflicts.map(c => `<tr><td><a href="#/manufacturer/${encodeURIComponent(c.name)}">${esc(c.name)}</a></td><td>${esc(c.countries)}</td><td class="num">${num(c.total)}</td></tr>`).join("")}</tbody></table></div>
+
+    <h3>Registration numbers used more than once (same product type)</h3>
+    <div class="sub"><table><thead><tr><th>Type</th><th>Reg. no</th><th class="num">Products</th><th>Products</th></tr></thead><tbody>
+      ${d.duplicate_reg.map(r => `<tr><td>${esc(r.drug_type)}</td><td>${esc(r.reg_no)}</td><td class="num">${num(r.n)}</td>
+        <td>${r.ids.split(",").slice(0, 12).map(i => `<a href="#/drug/${i}">#${i}</a>`).join(" ")}</td></tr>`).join("")}</tbody></table></div>
+
+    <h3>Other gaps</h3>
+    <p>Non-cosmetic products without an active-ingredient list: ${d.no_ingredients.map(x => `${esc(x.label)} ${num(x.count)}`).join(" · ") || "none"}.
+       Non-cosmetic products with no storage condition: ${num(d.no_storage)}.</p>`;
+  get("/api/facets").then(f => { $("#grouplist").innerHTML = (f.groups||[]).map(g => `<option value="${esc(g)}">`).join(""); });
+  P.onclick = async e => {
+    const a = e.target.closest("button[data-alias]"), g = e.target.closest("button[data-cgroup]");
+    try{
+      if(a){ const n = a.dataset.alias;
+        const r = await postJSON("/api/alias", {name: a.dataset.name, lookup: $("#al-l"+n).value, type: $("#al-t"+n).value, note: $("#al-n"+n).value});
+        a.textContent = "Saved ✓"; a.disabled = true; a.title = r.saved; }
+      if(g){ const n = g.dataset.cgroup;
+        const r = await postJSON("/api/company-rule", {name: g.dataset.name, group: $("#cg-g"+n).value, source: $("#cg-s"+n).value});
+        g.textContent = "Saved ✓"; g.disabled = true; g.title = r.saved + " " + r.note; }
+    }catch(err){ alert(err.message); }
+  };
+  $("#retry").onclick = async () => {
+    try{ await postJSON("/api/retry", {}); $("#retry").disabled = true; $("#retrymsg").textContent = "Running… reload this page later to see the result."; }
+    catch(err){ alert(err.message); }
+  };
+}
+
+// ---------------------------------------------------------------- saved searches and notes (this browser only)
+const store = {
+  get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+};
+function drawSaved(){
+  const s = store.get("eda_saved", []);
+  $("#saved").innerHTML = `<option value="">Saved searches${s.length ? ` (${s.length})` : ""}</option>` +
+    s.map((x, n) => `<option value="${n}">${esc(x.name)}</option>`).join("") + (s.length ? `<option value="manage">Manage saved searches…</option>` : "");
+}
+function saveSearch(){
+  const name = prompt("Name this search:", F.q || F.company || (F.ings[0] && F.ings[0].title) || "My search");
+  if(!name) return;
+  const s = store.get("eda_saved", []);
+  s.push({name, f: JSON.parse(JSON.stringify(F))}); store.set("eda_saved", s); drawSaved();
+}
+function openSaved(v){
+  if(v === "manage"){ location.hash = "#/notes"; return; }
+  const s = store.get("eda_saved", [])[+v]; if(!s) return;
+  showDrugList(s.f); $("#saved").value = "";
+}
+function notesBlock(id){
+  const n = store.get("eda_notes", {})[id];
+  return `<h3>My notes</h3><textarea id="note" rows="3" style="width:100%;font:inherit" placeholder="Private note, kept in this browser only">${esc(n ? n.text : "")}</textarea>
+    <div class="meta" id="notemsg">${n ? "Saved " + esc(n.at) : ""}</div>`;
+}
+function bindNotes(id, title){
+  const t = $("#note"); if(!t) return;
+  let timer;
+  t.oninput = () => { clearTimeout(timer); timer = setTimeout(() => {
+    const all = store.get("eda_notes", {});
+    if(t.value.trim()) all[id] = {text: t.value, title, at: new Date().toLocaleString()}; else delete all[id];
+    store.set("eda_notes", all); $("#notemsg").textContent = t.value.trim() ? "Saved" : "Note removed";
+  }, 400); };
+}
+function pageNotes(){
+  const P = $("#page"), notes = store.get("eda_notes", {}), saved = store.get("eda_saved", []);
+  P.innerHTML = `<h2>My saved searches and notes</h2>
+    <p class="meta">Kept in this browser only (not in the database). Clearing the browser's site data removes them.</p>
+    <h3>Saved searches</h3>
+    ${saved.length ? `<div class="sub"><table><tbody>${saved.map((s, n) => `<tr><td><a href="#" data-open="${n}">${esc(s.name)}</a></td>
+      <td><button data-del="${n}">Delete</button></td></tr>`).join("")}</tbody></table></div>` : `<p class="meta">None yet — use “Save search” above the drug list.</p>`}
+    <h3>Notes</h3>
+    ${Object.keys(notes).length ? `<div class="sub"><table><thead><tr><th>Product</th><th>Note</th><th>Saved</th></tr></thead><tbody>
+      ${Object.entries(notes).map(([id, n]) => `<tr><td><a href="#/drug/${id}">${esc(n.title || "#" + id)}</a></td><td style="white-space:pre-line">${esc(n.text)}</td><td class="meta">${esc(n.at)}</td></tr>`).join("")}
+      </tbody></table></div>` : `<p class="meta">None yet — open a product and type in “My notes”.</p>`}`;
+  P.onclick = e => {
+    const o = e.target.closest("[data-open]"), d = e.target.closest("button[data-del]");
+    if(o){ e.preventDefault(); openSaved(o.dataset.open); }
+    if(d){ const s = store.get("eda_saved", []); s.splice(+d.dataset.del, 1); store.set("eda_saved", s); drawSaved(); pageNotes(); }
+  };
+}
+
+// ---------------------------------------------------------------- "did you mean" for searches with few results
+async function suggestFor(q, total){
+  const box = $("#suggest");
+  if(!q || q.length < 4 || total > 2){ box.innerHTML = ""; return; }
+  try{
+    const d = await get("/api/suggest?q=" + encodeURIComponent(q));
+    if($("#q").value.trim() !== q) return;
+    box.innerHTML = d.rows.length ? `${total ? "Also try" : "No exact match. Did you mean"}: ` + d.rows.map(r =>
+      r.kind === "ingredient" ? `<a href="${ingHref(r.key)}">${esc(r.name)}</a> <span class="meta">(ingredient, ${num(r.count)})</span>`
+                              : `<a href="#" data-sugg="${esc(r.name)}">${esc(r.name)}</a>`).join(" · ") : "";
+  }catch(e){ box.innerHTML = ""; }
+}
+
+// ---------------------------------------------------------------- Arabic interface
+// Interface wording only; product, company and ingredient names stay as written in the EDA records.
+const AR = {
+  "EDA Drugs": "أدوية هيئة الدواء", "Drugs": "الأدوية", "Ingredients": "المواد الفعالة", "What it treats": "دواعي الاستعمال",
+  "Classes (ATC)": "التصنيف العلاجي (ATC)", "Companies": "الشركات", "Origin": "بلد المنشأ", "Veterinary": "بيطري",
+  "Market": "السوق والإمداد", "Statistics": "إحصاءات", "Compare": "مقارنة", "Review": "مراجعة البيانات", "My notes": "ملاحظاتي",
+  "All types": "كل الأنواع", "Any dosage form": "أي شكل صيدلي", "Any licence status": "أي حالة ترخيص", "Marketed or not": "مسوَّق أو غير مسوَّق",
+  "has price": "له سعر", "Sort: registration order": "الترتيب: ترتيب التسجيل", "Sort: trade name": "الترتيب: الاسم التجاري",
+  "Sort: price, low → high": "الترتيب: السعر تصاعديًا", "Sort: price, high → low": "الترتيب: السعر تنازليًا", "Sort: company": "الترتيب: الشركة",
+  "All records": "كل السجلات", "With details": "بالتفاصيل", "Detail errors": "أخطاء التفاصيل",
+  "More filters": "مرشحات إضافية", "Clear filters": "مسح المرشحات", "Export CSV": "تصدير CSV", "Save search": "حفظ البحث",
+  "Any corporate group": "أي مجموعة شركات", "Made anywhere": "أي بلد تصنيع", "Made in Egypt": "صُنع في مصر", "Imported": "مستورد",
+  "Any manufacturer country": "أي بلد مصنِّع", "Any storage": "أي ظروف تخزين", "Any target species (veterinary)": "أي نوع حيواني (بيطري)",
+  "WHO essential medicine": "دواء أساسي (منظمة الصحة العالمية)", "Any patient group": "أي فئة مرضى",
+  "Suitable for children": "مناسب للأطفال", "No tablet or capsule to swallow": "بدون أقراص أو كبسولات للبلع",
+  "← Prev": "→ السابق", "Next →": "التالي ←", "Lowest price": "أقل سعر", "Trade Name": "الاسم التجاري", "Generics": "المواد الفعالة",
+  "Applicant Name": "مقدم الطلب", "Dosage Form": "الشكل الصيدلي", "Trade Details": "تفاصيل تجارية",
+  "Pick a drug to see all of its data.": "اختر دواءً لعرض كل بياناته.", "No products match.": "لا توجد منتجات مطابقة.",
+  "Active ingredients": "المواد الفعالة", "Equivalents and alternatives": "البدائل والمثائل", "Detail page": "صفحة التفاصيل",
+  "Search results row": "صف نتائج البحث", "Saved page": "الصفحة المحفوظة", "Show the saved detail page": "عرض صفحة التفاصيل المحفوظة",
+  "Companies, origin and storage": "الشركات والمنشأ والتخزين", "Role": "الدور", "Company": "الشركة", "Country": "البلد",
+  "Manufacturer": "المصنِّع", "Licensor Holder": "صاحب الترخيص", "Packager": "التعبئة", "Storage Site": "موقع التخزين",
+  "Batch Releaser": "الإفراج عن التشغيلات", "Manufacturer of finished product": "مصنِّع المنتج النهائي",
+  "+ compare": "+ مقارنة", "✓ in comparison": "✓ في المقارنة", "remove": "إزالة", "Clear comparison": "مسح المقارنة",
+  "Compare products": "مقارنة المنتجات", "Highlighted rows differ between the products.": "الصفوف المظللة تختلف بين المنتجات.",
+  "Trade name": "الاسم التجاري", "Active ingredients ": "المواد الفعالة", "Dosage form": "الشكل الصيدلي", "Status": "الحالة",
+  "Route": "طريق الإعطاء", "Packs and prices": "العبوات والأسعار", "Lowest pack price": "أقل سعر عبوة", "Applicant": "مقدم الطلب",
+  "Corporate group": "مجموعة الشركات", "Storage": "التخزين", "Storage text": "نص التخزين", "Shelf life": "مدة الصلاحية",
+  "Registration no": "رقم التسجيل", "Licence": "الترخيص", "Marketing": "التسويق", "Target species": "الأنواع المستهدفة", "Type": "النوع",
+  "marketed": "مسوَّق", "not marketed": "غير مسوَّق", "lowest": "الأقل", "None.": "لا يوجد.",
+  "Products": "المنتجات", "products": "منتجات", "Ingredient": "المادة الفعالة", "Names used in EDA records": "الأسماء الواردة في سجلات الهيئة",
+  "Most often combined with": "تُدمج غالبًا مع", "Show in drug list": "عرض في قائمة الأدوية", "Add to combination search": "إضافة لبحث التركيبات",
+  "single-ingredient": "مادة فعالة واحدة", "in combinations": "ضمن تركيبات", "lowest single-ingredient price": "أقل سعر لمادة واحدة",
+  "Therapeutic class (ATC)": "التصنيف العلاجي (ATC)", "Indications and pharmacology (PubChem)": "دواعي الاستعمال والفارماكولوجيا (PubChem)",
+  "Safety (PubChem)": "السلامة (PubChem)", "SOP draft for making this substance": "مسودة إجراء تشغيل قياسي لتصنيع هذه المادة",
+  "Download Markdown (.md)": "تنزيل Markdown (.md)", "Download web page (.html)": "تنزيل صفحة ويب (.html)", "Copy Markdown": "نسخ Markdown", "All except cosmetics": "الكل عدا مستحضرات التجميل",
+  "show the imported products": "عرض المنتجات المستوردة", "Manufacturing (PubChem)": "التصنيع (PubChem)",
+  "Methods of Manufacturing": "طرق التصنيع", "Impurities": "الشوائب", "Formulations/Preparations": "المستحضرات والتركيبات",
+  "General Manufacturing Information": "معلومات عامة عن التصنيع", "Forms for special needs": "أشكال لاحتياجات خاصة", "show": "عرض",
+  "Drug Indication": "دواعي الاستعمال", "Therapeutic Uses": "الاستخدامات العلاجية", "Drug Classes": "الفئات الدوائية",
+  "MeSH Pharmacological Classification": "التصنيف الدوائي (MeSH)", "Pharmacodynamics": "الديناميكا الدوائية",
+  "Mechanism of Action": "آلية التأثير", "Absorption, Distribution and Excretion": "الامتصاص والتوزيع والإخراج",
+  "Protein Binding": "الارتباط بالبروتين", "Metabolism/Metabolites": "الأيض والمستقلبات", "Biological Half-Life": "عمر النصف",
+  "Black Box Warning": "تحذير الصندوق الأسود", "LiverTox Summary": "ملخص السمية الكبدية (LiverTox)", "Hepatotoxicity": "السمية الكبدية",
+  "Effects During Pregnancy and Lactation": "التأثير أثناء الحمل والرضاعة", "Populations at Special Risk": "فئات معرضة لخطر خاص",
+  "Adverse Effects": "الآثار الجانبية", "Interactions": "التداخلات", "Toxicity Summary": "ملخص السمية", "Antidote and Emergency Treatment": "الترياق والعلاج الطارئ",
+  "Combination search:": "بحث التركيبات:", "+ combine": "+ دمج", "nothing else": "لا شيء غيرها", "Type": "النوع",
+  "All classes": "كل التصنيفات", "Main groups": "المجموعات الرئيسية", "Sub-classes": "التصنيفات الفرعية",
+  "Applicants (licence holders)": "مقدمو الطلب (أصحاب التراخيص)", "Manufacturers": "المصنِّعون", "Corporate groups": "مجموعات الشركات",
+  "Group": "المجموعة", "Member companies": "الشركات الأعضاء", "Product types": "أنواع المنتجات", "Therapeutic classes": "التصنيفات العلاجية",
+  "Top active ingredients": "أهم المواد الفعالة", "Dosage forms": "الأشكال الصيدلية", "Manufacturing country": "بلد التصنيع",
+  "Licence status": "حالة الترخيص", "Manufactured by": "يُصنَّع لدى", "Applicants (licence holders) it manufactures for": "يُصنِّع لصالح",
+  "Country of origin": "بلد المنشأ", "made in Egypt": "صُنع في مصر", "imported": "مستورد", "no manufacturer listed": "بلا مصنِّع مذكور",
+  "Manufacturing country (products)": "بلد التصنيع (منتجات)", "Local vs imported, by product type": "محلي مقابل مستورد حسب نوع المنتج",
+  "Made in Egypt ": "صُنع في مصر", "Imported share": "نسبة المستورد",
+  "Veterinary products": "المنتجات البيطرية", "veterinary products": "منتجات بيطرية", "target species named": "نوعًا حيوانيًا",
+  "with no species listed": "بلا نوع حيواني مذكور", "Show all veterinary products": "عرض كل المنتجات البيطرية",
+  "Target species": "الأنواع المستهدفة", "Most common active ingredients": "أكثر المواد الفعالة شيوعًا", "Largest companies": "أكبر الشركات",
+  "Market and supply": "السوق والإمداد", "All medicines": "كل الأدوية", "active ingredients": "مادة فعالة",
+  "with a single supplier": "بمورد واحد", "imported only (no local manufacturer)": "مستوردة فقط (بلا مصنِّع محلي)",
+  "product groups registered but none marketed": "مجموعات مسجلة وغير مسوَّقة", "How many suppliers each ingredient has": "عدد الموردين لكل مادة",
+  "Most suppliers": "الأكثر موردين", "Supplier": "المورد", "Suppliers": "الموردون", "Marketed": "مسوَّق",
+  "Ingredients and strengths": "المواد والتركيزات", "example ›": "مثال ›",
+  "Statistics ": "إحصاءات", "registered products": "منتجًا مسجلًا", "with an active-ingredient list": "لها قائمة مواد فعالة",
+  "with a pack price": "لها سعر عبوة", "Products by type": "المنتجات حسب النوع", "Therapeutic classes (products)": "التصنيفات العلاجية (منتجات)",
+  "Dosage forms (medicines)": "الأشكال الصيدلية (أدوية)", "Marketing status (where given)": "حالة التسويق (إن وُجدت)",
+  "Largest corporate groups": "أكبر مجموعات الشركات", "Top importing countries": "أهم دول الاستيراد",
+  "Storage (medicines and other non-cosmetics)": "التخزين (غير مستحضرات التجميل)", "References": "المراجع", "Data quality": "جودة البيانات",
+  "Data quality review": "مراجعة جودة البيانات", "Unmatched ingredient names": "أسماء مواد غير مطابقة", "Save": "حفظ", "Saved ✓": "تم الحفظ ✓",
+  "Re-run matching for unmatched names": "إعادة المطابقة للأسماء غير المطابقة", "EDA name": "الاسم لدى الهيئة",
+  "Companies without a corporate group (largest first)": "شركات بلا مجموعة (الأكبر أولًا)",
+  "Manufacturers listed with more than one country": "مصنِّعون مذكورون بأكثر من بلد",
+  "Registration numbers used more than once (same product type)": "أرقام تسجيل مكررة (نفس النوع)", "Other gaps": "نواقص أخرى",
+  "My saved searches and notes": "عمليات البحث والملاحظات المحفوظة", "Saved searches": "عمليات البحث المحفوظة", "Notes": "الملاحظات",
+  "Delete": "حذف", "Note": "ملاحظة", "Saved": "محفوظ", "Product": "المنتج",
+  "Manage saved searches…": "إدارة عمليات البحث المحفوظة…", "Show all products with these ingredients in the list": "عرض كل المنتجات بهذه المواد في القائمة",
+  "Same active ingredients, strength and dosage form": "نفس المواد الفعالة والتركيز والشكل الصيدلي",
+  "Same active ingredients and strength, other dosage forms": "نفس المواد والتركيز بأشكال صيدلية أخرى",
+  "Same active ingredients, other strengths": "نفس المواد الفعالة بتركيزات أخرى",
+  "Up to 30 °C": "حتى 30 °م", "Up to 25 °C": "حتى 25 °م", "Refrigerated (2–8 °C)": "مبرَّد (2–8 °م)", "Frozen": "مجمَّد",
+  "Room temperature": "درجة حرارة الغرفة", "Other": "أخرى", "Not stated": "غير مذكور",
+  "human": "بشري", "veterinary": "بيطري", "cosmetics": "مستحضرات تجميل", "biocides": "مبيدات حيوية", "biological": "مستحضرات حيوية",
+  "herbal": "عشبي", "complementary": "تكميلي", "Valid": "ساري", "Expired": "منتهي", "Not Marketed": "غير مسوَّق",
+  "Interactions between these ingredients (PubChem)": "التداخلات بين هذه المواد (PubChem)",
+  "Chemical structure": "التركيب الكيميائي", "US labels (DailyMed) ↗": "النشرات الأمريكية (DailyMed) ↗",
+  "EU assessment reports (EMA) ↗": "تقارير التقييم الأوروبية (EMA) ↗", "Clinical trials ↗": "التجارب السريرية ↗",
+  "Wikipedia ↗": "ويكيبيديا ↗", "no English Wikipedia article": "لا توجد مقالة ويكيبيديا إنجليزية", "Parent compound": "المركب الأصلي",
+  "IUPAC name": "اسم IUPAC", "Loading…": "جارٍ التحميل…", "Searching…": "جارٍ البحث…", "Did you mean": "هل تقصد",
+};
+Object.assign(AR, {
+  "Active ingredients in products with a valid licence. Companies in the same corporate group count as one supplier. Essential medicines (WHO list) are listed first. No prices are used.":
+    "المواد الفعالة في المنتجات ذات الترخيص الساري. تُحسب شركات المجموعة الواحدة موردًا واحدًا. تظهر الأدوية الأساسية (قائمة منظمة الصحة العالمية) أولًا. لا تُستخدم الأسعار.",
+  "Only one company or group holds valid licences: a problem at that supplier can mean a shortage.":
+    "شركة أو مجموعة واحدة فقط تملك تراخيص سارية: أي مشكلة لدى هذا المورد قد تعني نقصًا في السوق.",
+  "Every product with a stated manufacturer is made abroad — candidates for local manufacturing.":
+    "كل المنتجات ذات المصنِّع المذكور تُصنع في الخارج — فرص للتصنيع المحلي.",
+  "Search the indications and therapeutic uses PubChem collects (from DrugBank, HSDB, StatPearls, MeSH and others) — e.g. hypertension, malaria, asthma, acne. This is reference information, not prescribing advice.":
+    "ابحث في دواعي الاستعمال والاستخدامات العلاجية التي يجمعها PubChem (من DrugBank وHSDB وStatPearls وMeSH وغيرها) — اكتب الحالة بالإنجليزية مثل hypertension أو malaria. هذه معلومات مرجعية وليست نصيحة علاجية.",
+  "Collected by PubChem from the sources named under each entry. Reference information, not prescribing advice.":
+    "جمعها PubChem من المصادر المذكورة تحت كل بند. معلومات مرجعية وليست نصيحة علاجية.",
+  "Liver toxicity (LiverTox), pregnancy and breastfeeding (LactMed), interactions and special-risk groups (HSDB) and more, as collected by PubChem. Reference information, not prescribing advice.":
+    "السمية الكبدية (LiverTox) والحمل والرضاعة (LactMed) والتداخلات والفئات المعرضة للخطر (HSDB) وغيرها كما جمعها PubChem. معلومات مرجعية وليست نصيحة علاجية.",
+  "Judged from each product's dosage form (and paediatric trade names). Check the leaflet for age limits and doses.":
+    "مستنتج من الشكل الصيدلي لكل منتج (وأسماء منتجات الأطفال). راجع النشرة للأعمار والجرعات.",
+  "Found by looking for each ingredient's name in the other ingredients' interaction texts (HSDB, via PubChem). An empty list does not mean there is no interaction — check a full interaction reference.":
+    "تم العثور عليها بالبحث عن اسم كل مادة في نصوص تداخلات المواد الأخرى (HSDB عبر PubChem). عدم ظهور نتائج لا يعني عدم وجود تداخل — راجع مرجعًا كاملًا للتداخلات.",
+  "Things that need a human eye. Fixes are saved to ingredient_aliases.tsv and company_groups.tsv next to the viewer.":
+    "عناصر تحتاج إلى مراجعة بشرية. تُحفظ التصحيحات في ingredient_aliases.tsv وcompany_groups.tsv بجوار العارض.",
+  "Kept in this browser only (not in the database). Clearing the browser's site data removes them.":
+    "محفوظة في هذا المتصفح فقط (وليس في قاعدة البيانات). مسح بيانات الموقع من المتصفح يحذفها.",
+  "From the manufacturer named on each product (the first manufacturer when several are listed). Most cosmetics records don't name one.":
+    "حسب المصنِّع المذكور في كل منتج (الأول عند تعدد المصنِّعين). معظم سجلات مستحضرات التجميل لا تذكر مصنِّعًا.",
+  "No exact match. Did you mean:": "لا توجد نتيجة مطابقة. هل تقصد:", "Also try:": "جرّب أيضًا:",
+});
+Object.assign(AR, {
+  "More ▾": "المزيد ▾", "Antibiotics": "المضادات الحيوية", "Regulatory status": "الوضع التنظيمي", "Controlled substances": "المواد الخاضعة للرقابة",
+  "Chemistry": "الكيمياء", "What changed": "ما الذي تغيّر", "Excel": "إكسل", "Print": "طباعة",
+  "Any antibiotic group (AWaRe)": "أي مجموعة مضادات (AWaRe)", "Any antibiotic": "أي مضاد حيوي", "Access": "إتاحة (Access)", "Watch": "مراقبة (Watch)",
+  "Reserve": "احتياطي (Reserve)", "Not recommended": "غير موصى به", "Unlisted combination": "تركيبة غير مدرجة",
+  "No safety flag filter": "بدون تصفية سلامة", "Ingredient withdrawn abroad": "مادة سُحبت في الخارج", "Controlled substance": "مادة خاضعة للرقابة",
+  "FDA approved": "معتمد من FDA", "EMA records": "سجلات EMA", "no FDA/EMA record": "لا سجل لدى FDA/EMA", "boxed warning": "تحذير مؤطر",
+  "controlled substance": "مادة خاضعة للرقابة", "Reported side effects (US FDA)": "الآثار الجانبية المبلغ عنها (FDA الأمريكية)",
+  "Substructure search": "بحث بالبنية الجزئية", "Similar structures": "تراكيب مشابهة", "Properties table": "جدول الخصائص",
+  "Find similar": "بحث عن المشابه", "Search": "بحث", "Take snapshot now": "حفظ لقطة الآن", "new products": "منتجات جديدة",
+  "removed": "محذوفة", "changed": "معدلة", "New products": "منتجات جديدة", "Removed products": "منتجات محذوفة", "Changed products": "منتجات معدلة",
+  "Products by AWaRe group": "المنتجات حسب مجموعة AWaRe", "Reserve antibiotics": "المضادات الاحتياطية",
+  "All classified antibiotics and combinations": "كل المضادات والتركيبات المصنفة", "Withdrawn in at least one country": "مسحوب في دولة واحدة على الأقل",
+  "Boxed warning": "تحذير مؤطر", "Most similar registered ingredients": "أكثر المواد المسجلة تشابهًا", "formula (main component)": "الصيغة (المكون الرئيسي)",
+  "molecular weight": "الوزن الجزيئي", "Lipinski rule of five": "قاعدة ليبينسكي الخماسية", "passes": "مستوفاة",
+});
+const AR_PH = {  // placeholders
+  "Search any field: name, reg no, ingredient, company… (Arabic works too)": "ابحث في أي حقل: الاسم، رقم التسجيل، المادة، الشركة…",
+  "Company contains…": "الشركة تحتوي…", "Find an ingredient: paracetamol, amoxicillin, ginkgo…": "ابحث عن مادة فعالة…",
+  "Find…": "بحث…", "A condition or use: hypertension, diabetes, fever, scabies…": "حالة أو استخدام (بالإنجليزية): hypertension, diabetes…",
+  "Private note, kept in this browser only": "ملاحظة خاصة، محفوظة في هذا المتصفح فقط",
+};
+const AR_RE = [  // composite strings
+  [/^([\d,]+) results · page (\d+) of (\d+)(.*)$/, (m, a, b, c, rest) => `${a} نتيجة · صفحة ${b} من ${c}${rest}`],
+  [/^Show all ([\d,]+)$/, (m, a) => `عرض الكل (${a})`],
+  [/^Show these ([\d,]+) products in the drug list$/, (m, a) => `عرض هذه المنتجات (${a}) في قائمة الأدوية`],
+  [/^Compare \((\d+)\)$/, (m, a) => `مقارنة (${a})`],
+  [/^Saved searches \((\d+)\)$/, (m, a) => `عمليات البحث المحفوظة (${a})`],
+  [/^Single ingredient \(([\d,]+)\)$/, (m, a) => `مادة واحدة (${a})`],
+  [/^Combinations \(([\d,]+)\)$/, (m, a) => `تركيبات (${a})`],
+  [/^shelf life (\d+) months$/, (m, a) => `الصلاحية ${a} شهرًا`],
+  [/^([\d,]+) products$/, (m, a) => `${a} منتج`],
+];
+let LANG = store.get("eda_lang", "en");
+const _orig = new WeakMap();
+function trText(s){
+  const t = s.trim().replace(/\s+/g, " ");
+  if(!t) return null;
+  const pad = x => s.match(/^\s*/)[0] + x + s.match(/\s*$/)[0];  // keep the spacing around the text
+  if(AR[t]) return pad(AR[t]);
+  for(const [re, fn] of AR_RE){ if(re.test(t)) return pad(t.replace(re, fn)); }
+  return null;
+}
+function translateNode(root){
+  if(LANG !== "ar") return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode: n =>
+    n.parentElement && !n.parentElement.closest("script,style,textarea,.it,.snip,.iupac,mark,code") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT});
+  const nodes = []; while(w.nextNode()) nodes.push(w.currentNode);
+  for(const n of nodes){
+    const tr = trText(n.nodeValue);
+    if(tr && tr !== n.nodeValue){ if(!_orig.has(n)) _orig.set(n, n.nodeValue); n.nodeValue = tr; }
+  }
+  root.querySelectorAll && root.querySelectorAll("[placeholder]").forEach(el => {
+    const p = el.getAttribute("placeholder"); if(AR_PH[p]){ el.dataset.phEn = p; el.setAttribute("placeholder", AR_PH[p]); }
+  });
+}
+const _obs = new MutationObserver(muts => { if(LANG !== "ar") return; _obs.disconnect();
+  for(const m of muts) for(const n of m.addedNodes){ if(n.nodeType === 1) translateNode(n); else if(n.nodeType === 3 && n.parentElement) translateNode(n.parentElement); }
+  _obs.observe(document.body, {childList: true, subtree: true, characterData: false}); });
+function setLang(l){
+  LANG = l; store.set("eda_lang", l);
+  document.documentElement.lang = l; document.documentElement.dir = l === "ar" ? "rtl" : "ltr";
+  $("#langbtn").textContent = l === "ar" ? "English" : "عربي";
+  if(l === "ar"){ translateNode(document.body); _obs.observe(document.body, {childList: true, subtree: true}); }
+  else { location.reload(); }
+}
+
+// ---------------------------------------------------------------- shared: Excel + print buttons
+function pageTools(src, name){
+  return `<span class="tools noprint">
+    <a class="btn xlsx" href="/api/xlsx?src=${encodeURIComponent(src)}&name=${encodeURIComponent(name)}" title="Download this page's tables as an Excel workbook">Excel</a>
+    <button onclick="window.print()" title="Print this page, or save it as PDF">Print</button></span>`;
+}
+const AWARE_TAG = {"Access": "ok", "Watch": "warn", "Reserve": "err", "Not recommended": "err", "Unlisted combination": ""};
+const awareTag = a => a ? `<span class="tag ${AWARE_TAG[a.category]||""}" title="WHO AWaRe 2025: ${esc(a.name)}">AWaRe: ${esc(a.category)}</span>` : "";
+
+function regBadges(r){
+  if(!r) return "";
+  const out = [];
+  if(r.fda) out.push(`<span class="tag ok" title="Listed in Drugs@FDA (via PubChem)">FDA approved</span>`);
+  if(r.ema) out.push(`<span class="tag ok" title="Has EMA medicine records (via PubChem)">EMA records</span>`);
+  if(r.reg_checked && !r.fda && !r.ema) out.push(`<span class="tag" title="No Drugs@FDA or EMA record found in PubChem">no FDA/EMA record</span>`);
+  if(r.first_approval) out.push(`<span class="tag" title="First approval anywhere (ChEMBL)">first approved ${r.first_approval}</span>`);
+  if(r.bbw) out.push(`<span class="tag warn" title="Carries a boxed warning (ChEMBL)">boxed warning</span>`);
+  if(r.withdrawn && r.withdrawn.length) out.push(`<span class="tag err" title="Withdrawn in at least one country (ChEMBL)">withdrawn in ${esc([...new Set(r.withdrawn.map(w => w.country).filter(Boolean))].slice(0,3).join(", ") || "some countries")}</span>`);
+  if(r.control) out.push(`<span class="tag warn" title="${esc(r.control)}">controlled substance</span>`);
+  if(r.aware) out.push(awareTag(r.aware));
+  return out.join(" ");
+}
+
+function regulatorySection(d){
+  const r = d.reg || {};
+  const ws = r.withdrawn || [];
+  return `<h3>Regulatory status</h3><p>${regBadges(r) || '<span class="meta">No regulatory data yet.</span>'}</p>
+    ${ws.length ? `<div class="sub"><table><thead><tr><th>Withdrawn in</th><th>Year</th><th>Reason</th><th>Details</th></tr></thead><tbody>
+      ${ws.map(w => `<tr><td>${esc(w.country||"")}</td><td>${esc(w.year||"")}</td><td>${esc(w.class||"")}</td>
+        <td>${esc(w.description||"")} ${w.ref_url ? ext(w.ref_url, "source") : ""}</td></tr>`).join("")}</tbody></table></div>
+      <p class="src">Withdrawals from ChEMBL's drug-warning data. A withdrawal elsewhere may concern a specific form, dose or market.</p>` : ""}
+    ${r.control ? `<p><b>Drug-control schedules:</b> ${r.control.split("; ").map(x => `<span class="chip">${esc(x)}</span>`).join(" ")}
+      <span class="src">(Wikidata; incomplete, and Egypt's own tables are not included)</span></p>` : ""}`;
+}
+
+async function loadFaers(key, refresh){
+  const box = $("#faers"); if(!box) return;
+  box.innerHTML = `<p class="meta">Asking openFDA…</p>`;
+  let d; try{ d = await get(`/api/faers?key=${encodeURIComponent(key)}${refresh ? "&refresh=1" : ""}`); }catch(e){ box.innerHTML = `<p class="meta">${esc(e.message)}</p>`; return; }
+  if(d.error && !d.total){ box.innerHTML = `<p class="meta">${esc(d.error)}</p>`; return; }
+  if(!d.total){ box.innerHTML = `<p class="meta">No reports found in the FDA database under this name.</p>`; return; }
+  box.innerHTML = `<p>${num(d.total)} US adverse-event reports mention <b>${esc(d.name)}</b>. Most reported reactions:</p>
+    ${bars(d.reactions)}
+    <p class="src">FDA Adverse Event Reporting System via openFDA. Reports are voluntary and unverified: a reaction being reported
+      does not prove the drug caused it, and counts reflect how widely a drug is used. ${d.cached ? "Stored copy." : ""}</p>`;
+}
+
+function chemSection(d){
+  const c = d.chem;
+  if(!c) return "";
+  const p = c.props;
+  return `<h3>Chemistry</h3>
+    <div class="tiles">${tile(esc(p.formula), "formula (main component)")}${tile(p.mw, "molecular weight")}${tile(p.logp, "logP")}
+      ${tile(p.tpsa, "TPSA (Å²)")}${tile(`${p.hbd} / ${p.hba}`, "H-bond donors / acceptors")}
+      ${tile(p.lipinski ? `${p.lipinski} rule${p.lipinski>1?"s":""} broken` : "passes", "Lipinski rule of five")}</div>
+    ${c.similar.length ? `<p><b>Most similar registered ingredients</b> <span class="src">(Morgan fingerprints, Tanimoto similarity)</span></p>
+      ${bars(c.similar.map(s => ({label: s.title, count: s.similarity, key: s.key})), {href: s => ingHref(s.key), max: 1, fmt: v => v.toFixed(2)})}` : ""}
+    <p class="noprint"><a href="#/chem/similar/${encodeURIComponent(d.key)}">More similar structures ›</a></p>`;
+}
+
+// ---------------------------------------------------------------- antibiotics (WHO AWaRe)
+async function pageAntibiotics(){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/antibiotics");
+  const cat = Object.fromEntries(d.by_category.map(x => [x.label, x]));
+  P.innerHTML = `<h2>Antibiotics — WHO AWaRe ${pageTools("/api/antibiotics", "antibiotics_aware")}</h2>
+    <p class="meta">Human and biological products containing antibiotics, classified with the WHO AWaRe 2025 list
+      (${ext(d.source, "WHO, 2025")}). <b>Access</b>: first choice for common infections. <b>Watch</b>: higher resistance risk, key stewardship targets.
+      <b>Reserve</b>: last resort for multi-drug-resistant infections. <b>Not recommended</b>: fixed-dose combinations WHO advises against.</p>
+    <div class="tiles">${["Access","Watch","Reserve","Not recommended","Unlisted combination"].filter(k => cat[k]).map(k =>
+      `<a class="tile" href="#/list/aware/${encodeURIComponent(k)}">${`<div class="v">${num(cat[k].count)}</div><div class="l">${esc(k)}</div>`}</a>`).join("")}</div>
+    <div class="grid2">
+      <div><h3>Products by AWaRe group</h3>${bars(d.by_category, {href: c => "#/list/aware/" + encodeURIComponent(c.label)})}</div>
+      <div><h3>Companies with most Watch / Reserve / not-recommended products</h3>${bars(d.companies)}</div>
+    </div>
+    <h3>Not recommended combinations on the market (${num(d.not_recommended.length)})</h3>
+    <p class="src">WHO: “not evidence-based, nor recommended in high-quality international guidelines”.</p>
+    ${productTable(d.not_recommended, {limit: 30})}
+    <h3>Reserve antibiotics (${num(d.reserve.length)})</h3>${productTable(d.reserve, {limit: 30})}
+    <h3>All classified antibiotics and combinations</h3>
+    <div class="sub"><table><thead><tr><th>AWaRe</th><th>Antibiotic</th><th>Class</th><th>On WHO EML</th><th class="num">Products</th></tr></thead><tbody>
+    ${d.entries.map(e => `<tr><td>${awareTag(e)}</td><td>${esc(e.name)}</td><td>${esc(e.class||"")}</td><td>${e.eml ? "Yes" : ""}</td>
+      <td class="num">${num(e.products)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// ---------------------------------------------------------------- regulatory status
+async function pageRegulatory(){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/regulatory");
+  P.innerHTML = `<h2>Regulatory status abroad ${pageTools("/api/regulatory", "regulatory_status")}</h2>
+    <p class="meta">How the active ingredients registered in Egypt are treated elsewhere: withdrawals (ChEMBL drug warnings),
+      boxed warnings (ChEMBL), and whether PubChem holds a Drugs@FDA or EMA record. Checked for ${num(d.checked)} ingredients so far.</p>
+    <div class="tiles">${tile(num(d.withdrawn.length), "ingredients withdrawn in at least one country")}
+      ${tile(num(d.withdrawn_products), "products containing one")}${tile(num(d.boxed.length), "ingredients with a boxed warning")}
+      ${tile(num(d.not_approved_total), "chemical ingredients with no FDA/EMA record")}</div>
+    <div class="toolbar noprint"><button class="primary" onclick="showDrugList({flag:'withdrawn'})">Show products with a withdrawn ingredient</button></div>
+    <h3>Withdrawn in at least one country</h3>
+    <div class="sub"><table><thead><tr><th>Ingredient</th><th>Countries</th><th>Reasons</th><th>Years</th><th class="num">Valid products</th><th class="num">Marketed</th></tr></thead><tbody>
+    ${d.withdrawn.map(w => `<tr><td><a href="${ingHref(w.key)}">${esc(w.title)}</a></td><td>${esc(w.countries.join(", "))}</td>
+      <td>${esc(w.reasons.join(", "))}</td><td>${esc(w.years.join(", "))}</td><td class="num">${num(w.valid)}</td><td class="num">${num(w.marketed)}</td></tr>`).join("")}</tbody></table></div>
+    <p class="src">A withdrawal in one country can concern a particular form, dose or indication; open the ingredient for details and sources.</p>
+    <h3>No Drugs@FDA or EMA record (${num(d.not_approved_total)})</h3>
+    <p class="src">Chemical ingredients in human medicines for which PubChem holds neither record. Many are older or regional medicines,
+      vitamins, minerals or excipient-like substances, so this is a prompt to look closer, not a judgement.</p>
+    <div class="sub"><table><thead><tr><th>Ingredient</th><th class="num">Human products</th><th>Highest phase (ChEMBL)</th><th>First approval</th></tr></thead><tbody>
+    ${d.not_approved.slice(0, 200).map(x => `<tr><td><a href="${ingHref(x.key)}">${esc(x.title)}</a></td><td class="num">${num(x.human)}</td>
+      <td>${x.phase != null ? esc(x.phase) : ""}</td><td>${esc(x.first_approval||"")}</td></tr>`).join("")}</tbody></table></div>
+    <h3>Boxed warning</h3>${bars(d.boxed.slice(0, 40).map(b => ({label: b.title, count: b.products, key: b.key})), {href: b => ingHref(b.key)})}`;
+}
+
+// ---------------------------------------------------------------- controlled substances
+async function pageControlled(){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Loading…</p>`;
+  const d = await get("/api/controlled");
+  P.innerHTML = `<h2>Controlled substances ${pageTools("/api/controlled", "controlled_substances")}</h2>
+    <p class="note">${esc(d.note)}</p>
+    <div class="tiles">${tile(num(d.rows.length), "controlled ingredients found")}${tile(num(d.products), "products containing one")}
+      ${tile(num(d.rows.filter(r => r.international.length).length), "under the UN conventions")}</div>
+    <div class="toolbar noprint"><button class="primary" onclick="showDrugList({flag:'controlled'})">Show these products in the drug list</button></div>
+    <div class="sub"><table><thead><tr><th>Ingredient</th><th>UN conventions</th><th>Other schedules</th><th class="num">Products</th></tr></thead><tbody>
+    ${d.rows.map(r => `<tr><td><a href="${ingHref(r.key)}">${esc(r.title)}</a></td><td>${esc(r.international.join("; "))}</td>
+      <td class="meta">${esc(r.schedules.filter(s => !r.international.includes(s)).join("; "))}</td><td class="num">${num(r.products)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+// ---------------------------------------------------------------- chemistry tools
+async function pageChem(mode, arg){
+  const P = $("#page");
+  if(window.EDA_STATIC){ P.innerHTML = `<h2>Chemistry</h2><p class="meta">Structure search runs RDKit on the server, so it is only in the full viewer.
+    Each ingredient page still shows its structure, properties and most similar ingredients.</p>`; return; }
+  P.innerHTML = `<h2>Chemistry ${pageTools("/api/chem/props", "ingredient_properties")}</h2>
+    <p class="meta">Structures from PubChem, computed with RDKit on this computer (largest fragment, so salts count as their active part).</p>
+    <div class="tabs noprint">
+      <a class="btn ${mode==="sub"||!mode?"primary":""}" href="#/chem/sub">Substructure search</a>
+      <a class="btn ${mode==="similar"?"primary":""}" href="#/chem/similar">Similar structures</a>
+      <a class="btn ${mode==="props"?"primary":""}" href="#/chem/props">Properties table</a></div>
+    <div id="chembody"><p class="meta">Loading structures…</p></div>`;
+  const B = $("#chembody");
+  const resTable = rows => `<div class="sub"><table><thead><tr><th></th><th>Ingredient</th><th>Formula</th>${rows[0] && rows[0].similarity != null ? '<th class="num">Similarity</th>' : ""}
+      <th class="num">MW</th><th class="num">logP</th><th class="num">Products</th></tr></thead><tbody>
+    ${rows.map(r => `<tr><td><img class="mini" loading="lazy" src="${structUrl(r.key)}" alt=""></td>
+      <td><a href="${ingHref(r.key)}">${esc(r.title)}</a></td><td>${esc(r.formula)}</td>${r.similarity != null ? `<td class="num">${r.similarity.toFixed(2)}</td>` : ""}
+      <td class="num">${r.mw}</td><td class="num">${r.logp}</td><td class="num">${num(r.products)}</td></tr>`).join("")}</tbody></table></div>`;
+  if(mode === "props"){
+    const d = await get("/api/chem/props");
+    B.innerHTML = `<div class="toolbar">MW ≤ <input id="f-mw" type="number" style="width:80px" placeholder="any">
+        logP ≤ <input id="f-lp" type="number" step="0.5" style="width:70px" placeholder="any">
+        <label class="chk"><input type="checkbox" id="f-lip"> passes Lipinski's rule of five</label>
+        <input id="f-q" placeholder="name contains…"></div><div id="ptab"></div>`;
+    const draw = () => {
+      const mw = parseFloat($("#f-mw").value), lp = parseFloat($("#f-lp").value), lip = $("#f-lip").checked, q = $("#f-q").value.toLowerCase();
+      const rows = d.rows.filter(r => (isNaN(mw) || r.mw <= mw) && (isNaN(lp) || r.logp <= lp) && (!lip || !r.lipinski) && (!q || r.title.toLowerCase().includes(q)))
+        .sort((a, b) => b.products - a.products);
+      $("#ptab").innerHTML = `<p class="meta">${num(rows.length)} of ${num(d.rows.length)} ingredients</p>
+        <div class="sub"><table><thead><tr><th>Ingredient</th><th>Formula</th><th class="num">MW</th><th class="num">logP</th><th class="num">TPSA</th>
+        <th class="num">HBD</th><th class="num">HBA</th><th class="num">Rot. bonds</th><th class="num">Lipinski</th><th class="num">Products</th></tr></thead><tbody>
+        ${rows.slice(0, 400).map(r => `<tr><td><a href="${ingHref(r.key)}">${esc(r.title)}</a></td><td>${esc(r.formula)}</td><td class="num">${r.mw}</td>
+          <td class="num">${r.logp}</td><td class="num">${r.tpsa}</td><td class="num">${r.hbd}</td><td class="num">${r.hba}</td><td class="num">${r.rotb}</td>
+          <td class="num">${r.lipinski ? r.lipinski + " broken" : "✓"}</td><td class="num">${num(r.products)}</td></tr>`).join("")}</tbody></table></div>`;
+    };
+    B.oninput = draw; draw(); return;
+  }
+  if(mode === "similar"){
+    B.innerHTML = `<div class="toolbar"><input id="simq" placeholder="SMILES, e.g. CC(=O)NC1=CC=C(O)C=C1" style="flex:1" value="">
+      <button class="primary" id="simgo">Find similar</button></div><p class="meta">Or open any ingredient and use “More similar structures”.</p><div id="simres"></div>`;
+    const run = async (params) => {
+      const d = await get("/api/chem/similar?n=40&" + params);
+      $("#simres").innerHTML = d.error ? `<p class="errbox">${esc(d.error)}</p>` : resTable(d.rows);
+    };
+    $("#simgo").onclick = () => run("smiles=" + encodeURIComponent($("#simq").value.trim()));
+    if(arg) run("key=" + encodeURIComponent(arg));
+    return;
+  }
+  const d0 = await get("/api/chem/props");
+  B.innerHTML = `<div class="toolbar"><select id="preset"><option value="">Pick a drug family…</option>${d0.presets.map(p => `<option>${esc(p)}</option>`).join("")}</select>
+      <span class="meta">or</span><input id="subq" placeholder="SMARTS or SMILES pattern, e.g. S(=O)(=O)N" style="flex:1">
+      <button class="primary" id="subgo">Search</button></div>
+    <p class="src">Useful for allergy cross-checks (e.g. every beta-lactam or sulfonamide). Matching is purely structural.</p><div id="subres"></div>`;
+  const run = async (params) => {
+    $("#subres").innerHTML = `<p class="meta">Searching…</p>`;
+    const d = await get("/api/chem/search?" + params);
+    $("#subres").innerHTML = d.error ? `<p class="errbox">${esc(d.error)}</p>` :
+      `<p><b>${num(d.rows.length)} ingredients · ${num(d.products)} products</b> match <code>${esc(d.pattern)}</code></p>` + resTable(d.rows);
+  };
+  $("#preset").onchange = () => { if($("#preset").value) run("preset=" + encodeURIComponent($("#preset").value)); };
+  $("#subgo").onclick = () => run("q=" + encodeURIComponent($("#subq").value.trim()));
+}
+
+// ---------------------------------------------------------------- what changed
+async function pageChanges(since){
+  const P = $("#page"); P.innerHTML = `<p class="meta">Comparing…</p>`;
+  const d = await get("/api/changes" + (since ? "?since=" + since : ""));
+  if(d.error){ P.innerHTML = `<h2>What changed</h2><p class="meta">${esc(d.error)}</p>`; return; }
+  const snap = d.snapshots.find(s => s.id === d.since) || {};
+  const diffRow = c => c.diffs.map(x => `<div><span class="meta">${esc(x.field)}:</span> <s>${esc(x.old||"–")}</s> → <b>${esc(x.new||"–")}</b></div>`).join("");
+  P.innerHTML = `<h2>What changed ${pageTools("/api/changes?since=" + d.since, "changes")}</h2>
+    <p class="meta">Compares the database now with a saved snapshot. Take a snapshot before you update the database (e.g. after re-running your scraper),
+      then come back here to see what's new, removed or changed.</p>
+    <div class="toolbar noprint">Since:
+      <select id="snapsel">${d.snapshots.map(s => `<option value="${s.id}" ${s.id===d.since?"selected":""}>#${s.id} · ${esc(s.taken_at)} · ${esc(s.label||"")} (${num(s.n)} products)</option>`).join("")}</select>
+      <span class="serveronly"><input id="snaplabel" placeholder="label for a new snapshot"><button class="primary" id="snapbtn">Take snapshot now</button></span></div>
+    <div class="tiles">${tile(num(d.added_total), "new products")}${tile(num(d.removed_total), "removed")}${tile(num(d.changed_total), "changed")}</div>
+    ${d.by_field.length ? `<h3>What changed</h3>${bars(d.by_field)}` : ""}
+    ${d.added.length ? `<h3>New products</h3><div class="sub"><table><tbody>${d.added.slice(0, 300).map(r =>
+      `<tr><td><a href="#/drug/${r.drug_id}">${esc(r.trade_name||"")}</a></td><td>${esc(r.company||"")}</td><td>${esc(r.drug_type||"")}</td><td>${esc(r.ingredients||"")}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${d.removed.length ? `<h3>Removed products</h3><div class="sub"><table><tbody>${d.removed.slice(0, 300).map(r =>
+      `<tr><td>${esc(r.trade_name||"")}</td><td>${esc(r.company||"")}</td><td>${esc(r.reg_no||"")}</td><td>${esc(r.ingredients||"")}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${d.changed.length ? `<h3>Changed products</h3><div class="sub"><table><tbody>${d.changed.slice(0, 300).map(r =>
+      `<tr><td><a href="#/drug/${r.drug_id}">${esc(r.trade_name||"")}</a><div class="meta">${esc(r.company||"")}</div></td><td>${diffRow(r)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+    ${!d.added_total && !d.removed_total && !d.changed_total ? `<p class="meta">Nothing has changed since snapshot #${d.since} (${esc(snap.taken_at||"")}).</p>` : ""}`;
+  $("#snapsel").onchange = () => { location.hash = "#/changes/" + $("#snapsel").value; };
+  $("#snapbtn").onclick = async () => {
+    try{ const r = await postJSON("/api/snapshot", {label: $("#snaplabel").value}); alert(`Snapshot #${r.id} saved (${num(r.products)} products).`); pageChanges(r.id); }
+    catch(e){ alert(e.message); }
+  };
+}
+
+// ---------------------------------------------------------------- router
+function route(){
+  const h = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
+  const [view, ...rest] = h.split("/"); const arg = rest.join("/");
+  const drugs = !view || view === "drug";
+  $("#view-drugs").hidden = !drugs; $("#page").hidden = drugs;
+  $("#filters").style.display = drugs ? "" : "none";
+  const v = drugs ? "drugs" : view;
+  const navv = {ingredient: "ingredients", company: "companies", manufacturer: "companies", group: "companies"}[v] || v;
+  document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.v === navv));
+  const mn = document.querySelector("details.morenav"); if(mn){ mn.open = false; mn.classList.toggle("on", !!mn.querySelector("a.on")); }
+  if(view === "drug" && arg) showDrug(+arg);
+  else if(view === "ingredient") pageIngredient(arg);
+  else if(view === "sop") pageSop(arg);
+  else if(view === "ingredients") pageIngredients();
+  else if(view === "atc") pageAtc(arg);
+  else if(view === "companies") pageCompanies(arg);
+  else if(view === "company") pageCompany(arg, "applicant");
+  else if(view === "manufacturer") pageCompany(arg, "manufacturer");
+  else if(view === "group") pageGroup(arg);
+  else if(view === "countries") pageCountries();
+  else if(view === "vet") pageVet(arg);
+  else if(view === "treats") pageTreats(arg);
+  else if(view === "compare") pageCompare();
+  else if(view === "stats") pageStats();
+  else if(view === "market") pageMarket(arg);
+  else if(view === "antibiotics") pageAntibiotics();
+  else if(view === "regulatory") pageRegulatory();
+  else if(view === "controlled") pageControlled();
+  else if(view === "chem"){ const [m, ...r] = arg.split("/"); pageChem(m || "sub", r.join("/")); }
+  else if(view === "changes") pageChanges(arg);
+  else if(view === "quality") pageQuality();
+  else if(view === "notes") pageNotes();
+  else if(view === "list"){ const [k, ...v] = arg.split("/"); showDrugList({[k]: v.join("/")}); }
+  else if(!drugs) $("#page").innerHTML = `<h2>Page not found</h2><p class="meta">There's no page at “${esc(h)}”. <a href="#/">Back to the drug list</a></p>`;
+  if(!drugs) window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+
+$("#list tbody").addEventListener("click", e => { const tr=e.target.closest("tr[data-id]"); if(tr) location.hash = "#/drug/" + tr.dataset.id; });
+$("#q").addEventListener("input", () => { clearTimeout(timer); timer=setTimeout(()=>{readControls(); page=0; loadList();}, 250); });
+$("#company").addEventListener("input", () => { clearTimeout(timer); timer=setTimeout(()=>{readControls(); page=0; loadList();}, 350); });
+for(const id of ["type","status","form","license","marketing","sort","price","group","origin","country","storage","species","pop","aware","flag","eml"])
+  $("#"+id).onchange = () => { readControls(); page=0; loadList(); };
+$("#morebtn").onclick = () => { $("#more").hidden = !$("#more").hidden; };
+$("#filtbtn").onclick = () => { const f = $("#filters"); f.classList.toggle("open"); $("#filtbtn").textContent = f.classList.contains("open") ? "Filters ▴" : "Filters ▾"; };
+$("#reset").onclick = () => showDrugList({});
+$("#prev").onclick = () => { page--; loadList(); };
+$("#next").onclick = () => { page++; loadList(); };
+$("#savebtn").onclick = saveSearch;
+$("#saved").onchange = () => openSaved($("#saved").value);
+$("#langbtn").onclick = () => setLang(LANG === "ar" ? "en" : "ar");
+drawSaved();
+loadStats(); loadList(); route();
+if(LANG === "ar") setLang("ar");
+</script></body></html>
