@@ -424,6 +424,33 @@ async function apiOntologyLookup(codeStr){
   return {found: results.length > 0, results};
 }
 
+async function apiOntologySearch(qStr){
+  const cwList = await load("clinical/ontology_crosswalks.json").catch(() => []);
+  const q = (qStr || "").trim().toLowerCase();
+  const matches = [];
+  for(const item of cwList){
+    let found = false;
+    if(!q || (item.canonical_name || "").toLowerCase().includes(q) || (item.specialty || "").toLowerCase().includes(q)){
+      found = true;
+    }
+    const matched_codes = [];
+    for(const [axName, axDict] of Object.entries(item.axes || {})){
+      for(const [sysId, codeInfo] of Object.entries(axDict)){
+        const cVal = String(codeInfo.code || "").toLowerCase();
+        const nVal = String(codeInfo.name || "").toLowerCase();
+        if(q && (cVal.includes(q) || nVal.includes(q))){
+          found = true;
+          matched_codes.push({axis: axName, system: sysId, code: codeInfo.code, name: codeInfo.name});
+        }
+      }
+    }
+    if(found){
+      matches.push({...item, matched_codes});
+    }
+  }
+  return {total: matches.length, query: qStr, results: matches};
+}
+
 // ------------------------------------------------------------------ router
 const NO_SERVER = "This online copy is read-only and has no server behind it";
 const answers = {
@@ -441,6 +468,7 @@ const answers = {
   "/api/clinical/ontology/systems": () => load("clinical/ontology_systems.json"),
   "/api/clinical/ontology/crosswalk": p => load(`clinical/crosswalk/${p.get("id") || ""}.json`).catch(() => [404, {error: "Crosswalk not found"}]),
   "/api/clinical/ontology/lookup": p => apiOntologyLookup(p.get("code") || ""),
+  "/api/clinical/ontology/search": p => apiOntologySearch(p.get("q") || ""),
   "/api/ingredient": async p => (await ingredientPage(p.get("key") || "")) || [404, {error: "No products with this ingredient"}],
   "/api/ingredients": p => apiIngredients(p.get("q") || ""),
   "/api/companies": p => apiCompanies(p.get("q") || "", p.get("by") || "applicant", p.get("type") || "", p.get("origin") || ""),
