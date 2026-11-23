@@ -43,7 +43,7 @@ main{padding:16px}
 /* until a product is picked the list gets the whole width */
 #view-drugs.nodetail{grid-template-columns:minmax(0,1fr)}
 #view-drugs.nodetail #detail{display:none}
-.tablewrap{overflow-x:auto}
+.tablewrap{overflow-x:auto;position:relative}  /* relative: keeps visually hidden header text inside the scroll box */
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .listbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
 #pinfo{margin-inline-end:auto;font-weight:600}
@@ -153,6 +153,7 @@ details.morenav summary::-webkit-details-marker{display:none}
 details.morenav.on summary{color:var(--accent);border-bottom-color:var(--accent)}
 details.morenav .menu{position:absolute;inset-inline-end:0;top:100%;background:var(--panel);border:1px solid var(--line);border-radius:8px;
   box-shadow:0 6px 20px rgba(0,0,0,.12);padding:6px;display:grid;min-width:210px;z-index:5}
+details.morenav:not([open]) .menu,details.dd:not([open]) .ddmenu{display:none}  /* closed menus take no room (they widened phone pages) */
 details.morenav .menu a{border-bottom:0;padding:7px 10px;border-radius:6px}
 details.morenav .menu a:hover{background:var(--accent-soft)}
 #filtbtn{display:none}
@@ -165,7 +166,7 @@ details.morenav .menu a:hover{background:var(--accent-soft)}
   nav{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
   nav a,details.morenav summary{padding:8px 9px;white-space:nowrap}
   details.morenav{position:static}
-  details.morenav .menu{inset-inline:10px auto;top:auto}
+  details.morenav .menu{position:fixed;inset-inline:10px;top:auto;min-width:0}  /* phones: open menu spans the screen, never off its edge */
   .filters{padding:8px 10px;gap:6px}
   .filters select,.filters input{max-width:100%;flex:1 1 140px}
   header{position:static}
@@ -249,11 +250,13 @@ html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
     <nav>
       <a href="#/" data-v="drugs">Drugs</a>
       <a href="#/ingredients" data-v="ingredients">Ingredients</a>
-      <a href="#/companies" data-v="companies">Companies</a>
-      <a href="#/antibiotics" data-v="antibiotics">Antibiotics</a>
-      <a href="#/market" data-v="market">Market</a>
-      <a href="#/stats" data-v="stats">Statistics</a>
       <a href="#/compare" data-v="compare" id="cmpnav">Compare</a>
+      <details class="morenav"><summary>Insights ▾</summary><div class="menu">
+        <a href="#/companies" data-v="companies">Companies</a>
+        <a href="#/antibiotics" data-v="antibiotics">Antibiotics</a>
+        <a href="#/market" data-v="market">Market</a>
+        <a href="#/stats" data-v="stats">Statistics</a>
+      </div></details>
       <details class="morenav"><summary>Clinical ▾</summary><div class="menu">
         <a href="#/pathways" data-v="pathways">Treatment pathways</a>
         <a href="#/conditions" data-v="conditions">Health topics</a>
@@ -2139,7 +2142,7 @@ Object.assign(AR, {
   "No exact match. Did you mean:": "لا توجد نتيجة مطابقة. هل تقصد:", "Also try:": "جرّب أيضًا:",
 });
 Object.assign(AR, {
-  "More ▾": "المزيد ▾", "Antibiotics": "المضادات الحيوية", "Regulatory status": "الوضع التنظيمي", "Controlled substances": "المواد الخاضعة للرقابة",
+  "More ▾": "المزيد ▾", "Insights ▾": "تحليلات ▾", "Clinical ▾": "سريري ▾", "Antibiotics": "المضادات الحيوية", "Regulatory status": "الوضع التنظيمي", "Controlled substances": "المواد الخاضعة للرقابة",
   "Chemistry": "الكيمياء", "What changed": "ما الذي تغيّر", "Excel": "إكسل", "Print": "طباعة",
   "Any antibiotic group (AWaRe)": "أي مجموعة مضادات (AWaRe)", "Any antibiotic": "أي مضاد حيوي", "Access": "إتاحة (Access)", "Watch": "مراقبة (Watch)",
   "Reserve": "احتياطي (Reserve)", "Not recommended": "غير موصى به", "Unlisted combination": "تركيبة غير مدرجة",
