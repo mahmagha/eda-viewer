@@ -3,11 +3,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EDA Drugs Viewer</title>
 <style>
-:root{--bg:#f6f7f9;--panel:#fff;--text:#1d2330;--muted:#677084;--line:#e1e4ea;--accent:#1f6feb;--accent-soft:#e8f0fe;--err:#c62828;--err-soft:#fdecea;--ok:#1a7f37;--ok-soft:#e6f4ea;--track:#eef0f4}
+:root{--bg:#f6f7f9;--panel:#fff;--text:#1d2330;--muted:#677084;--line:#e1e4ea;--accent:#1a5fcf;--accent-soft:#e8f0fe;--err:#c62828;--err-soft:#fdecea;--ok:#1a7f37;--ok-soft:#e6f4ea;--track:#eef0f4}
 @media (prefers-color-scheme:dark){:root{--bg:#14171c;--panel:#1c2027;--text:#e6e9ef;--muted:#98a1b3;--line:#2c323c;--accent:#5b9dff;--accent-soft:#1f2b40;--err:#ff7b72;--err-soft:#3a1f1f;--ok:#56d364;--ok-soft:#1b3326;--track:#262b34}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0;font:14px/1.45 system-ui,"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--text)}
+body{margin:0;font:15px/1.5 system-ui,"Segoe UI",Tahoma,sans-serif;background:var(--bg);color:var(--text)}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 header{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:3}
 .topbar{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:10px 16px 0}
@@ -25,7 +25,14 @@ button,.btn{cursor:pointer;display:inline-block;border:1px solid var(--line);bor
 button.primary,.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 button:disabled{opacity:.4;cursor:default}
 select{max-width:220px}
-label.chk{display:flex;gap:5px;align-items:center;color:var(--muted)}
+label.chk{display:flex;gap:5px;align-items:center;color:var(--muted);min-height:32px}
+label.chk input{width:18px;height:18px;margin:0}
+/* labelled filter: small caption above its control */
+.fl{display:inline-flex;flex-direction:column;gap:2px}
+.fl>span{font-size:12px;font-weight:600;color:var(--muted);padding-inline-start:2px}
+.fl.inline{flex-direction:row;align-items:center;gap:6px}
+.filters{align-items:flex-end}
+.filters>button,.filters>.tag,.filters>input[type=search]{margin-bottom:1px}
 .stats{color:var(--muted);font-size:13px;width:100%;padding:0 16px 8px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .chip{display:inline-flex;gap:6px;align-items:center;background:var(--accent-soft);color:var(--text);border-radius:14px;padding:3px 10px;font-size:13px}
@@ -33,6 +40,30 @@ label.chk{display:flex;gap:5px;align-items:center;color:var(--muted)}
 .chip .n{color:var(--muted);font-size:12px}
 main{padding:16px}
 #view-drugs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:16px;align-items:start}
+/* until a product is picked the list gets the whole width */
+#view-drugs.nodetail{grid-template-columns:minmax(0,1fr)}
+#view-drugs.nodetail #detail{display:none}
+.tablewrap{overflow-x:auto}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.listbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line)}
+#pinfo{margin-inline-end:auto;font-weight:600}
+.sortbtn{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center;border-radius:4px;min-height:28px}
+.sortbtn:hover{color:var(--text)}
+.sortbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sortbtn .arr{font-size:11px;opacity:.8}
+#list td.tn a{color:inherit;font-weight:600}
+/* small drop-down menus in the list bar */
+details.dd{position:relative}
+details.dd>summary{list-style:none;user-select:none}
+details.dd>summary::-webkit-details-marker{display:none}
+details.dd[open]>summary{border-color:var(--accent)}
+.ddmenu{position:absolute;inset-inline-end:0;top:calc(100% + 4px);z-index:30;min-width:220px;max-height:60vh;overflow:auto;
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column;gap:2px}
+.ddmenu>a,.ddmenu>button,#savedlist>button{display:block;width:100%;text-align:start;border:0;background:none;padding:8px 10px;border-radius:6px;color:var(--text);min-height:36px;box-sizing:border-box}
+.ddmenu>a:hover,.ddmenu>button:hover,#savedlist>button:hover{background:var(--accent-soft);text-decoration:none}
+#savedlist{border-block:1px solid var(--line);margin:4px 0;padding:4px 0}
+#savedlist .meta{display:block;padding:6px 10px}
+#detail .closebtn{float:inline-end;margin-inline-start:8px;font-size:18px;line-height:1;padding:4px 10px}
 @media (max-width:900px){#view-drugs{grid-template-columns:1fr}}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .page{padding:18px 20px;max-width:1200px;margin:0 auto}
@@ -40,16 +71,18 @@ main{padding:16px}
 .page h3,#detail h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:22px 0 8px}
 table{width:100%;border-collapse:collapse}
 th,td{text-align:start;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;unicode-bidi:plaintext}
-th{font-weight:600;color:var(--muted);font-size:12px;background:var(--bg)}
+th{font-weight:600;color:var(--muted);font-size:13px;background:var(--bg)}
 td.num,th.num{text-align:end;white-space:nowrap;font-variant-numeric:tabular-nums}
 #list tbody tr,.ptable tbody tr{cursor:pointer}
 #list tbody tr:hover,.ptable tbody tr:hover{background:var(--accent-soft)}
 #list tbody tr.sel{background:var(--accent-soft);box-shadow:inset 3px 0 var(--accent)}
 .pager{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;color:var(--muted);gap:8px}
-.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.tag{display:inline-block;font-size:12px;padding:1px 6px;border-radius:10px;background:var(--bg);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
 .tag.err{background:var(--err-soft);color:var(--err);border-color:transparent}
 .tag.ok{background:var(--ok-soft);color:var(--ok);border-color:transparent}
-#detail{padding:16px;position:sticky;top:132px;max-height:calc(100vh - 148px);overflow:auto}
+#detail{padding:16px;position:sticky;top:calc(var(--hdr,132px) + 8px);max-height:calc(100vh - var(--hdr,132px) - 16px);overflow:auto}
+/* on tablets and short screens the header scrolls away instead of covering a third of the page */
+@media (max-width:1100px),(max-height:700px){header{position:static}#detail{top:8px;max-height:calc(100vh - 16px)}}
 #detail h2{margin:0 0 4px;font-size:18px;unicode-bidi:plaintext}
 .kv td:first-child{color:var(--muted);width:38%}
 .ing{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
@@ -76,7 +109,7 @@ iframe{width:100%;height:420px;border:1px solid var(--line);border-radius:6px;ba
 mark{background:#ffe58a;color:#000;border-radius:2px}
 .eq h4{margin:14px 0 6px;font-size:13px}
 .price{font-weight:600}
-.cheapest{color:var(--ok);font-size:11px;margin-inline-start:4px}
+.cheapest{color:var(--ok);font-size:12px;margin-inline-start:4px}
 /* stat tiles + bar lists (single series: one hue, value as text, hover tooltip) */
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:12px 0}
 .tile{background:var(--bg);border-radius:8px;padding:12px 14px}
@@ -142,7 +175,9 @@ details.morenav .menu a:hover{background:var(--accent-soft)}
   .grid2{grid-template-columns:1fr}
   .bars .bl{max-width:150px}
   .tools{float:none;display:flex;margin-top:6px}
-  #list th:nth-child(n+4),#list td:nth-child(n+4){display:none}
+  /* phones: trade name, generics and price; applicant and dosage form are in the details */
+  #list th:nth-child(3),#list td:nth-child(3),#list th:nth-child(4),#list td:nth-child(4){display:none}
+  .listbar .fl.inline>span{display:none}
   th,td{padding:6px 7px}
 }
 /* printing / save as PDF */
@@ -241,53 +276,64 @@ html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
     <button id="langbtn" style="margin-inline-start:auto">عربي</button>
   </div>
   <div class="filters" id="filters">
-    <input type="search" id="q" placeholder="Search any field: name, reg no, ingredient, company… (Arabic works too)"
+    <input type="search" id="q" aria-label="Search products" placeholder="Search any field: name, reg no, ingredient, company… (Arabic works too)"
       title="3 or more letters search every field; 1–2 letters match the start of trade, company and ingredient names">
-    <button id="filtbtn" type="button">Filters ▾</button>
-    <select id="type"><option value="">All types</option><option value="medicines">All except cosmetics</option></select>
-    <select id="form"><option value="">Any dosage form</option></select>
-    <select id="license"><option value="">Any licence status</option></select>
-    <select id="marketing"><option value="">Marketed or not</option></select>
-    <input id="company" placeholder="Company contains…" style="width:170px">
-    <label class="chk"><input type="checkbox" id="price"> has price</label>
-    <select id="sort">
-      <option value="">Sort: registration order</option><option value="name">Sort: trade name</option>
-      <option value="price">Sort: price, low → high</option><option value="price_desc">Sort: price, high → low</option>
-      <option value="company">Sort: company</option>
-    </select>
-    <select id="status"><option value="">All records</option><option value="details">With details</option><option value="errors">Detail errors</option></select>
-    <button id="morebtn">More filters</button>
-    <button id="savebtn">Save search</button>
-    <select id="saved"></select>
-    <button id="reset">Clear filters</button>
-    <a class="btn" id="export" href="#">Export CSV</a>
-    <a class="btn xlsx" id="exportx" href="#">Excel</a>
+    <button id="filtbtn" type="button" aria-expanded="false" aria-controls="filters">Filters ▾</button>
+    <!-- main filters, each with a visible label so a chosen value still says what it filters -->
+    <label class="fl"><span>Type</span><select id="type"><option value="">All types</option><option value="medicines">All except cosmetics</option></select></label>
+    <label class="fl"><span>Dosage form</span><select id="form"><option value="">Any dosage form</option></select></label>
+    <label class="fl"><span>Licence</span><select id="license"><option value="">Any licence status</option></select></label>
+    <label class="fl"><span>Company</span><input id="company" placeholder="contains…" style="width:170px"></label>
+    <button id="morebtn" type="button" aria-expanded="false" aria-controls="more">More filters</button><span id="morecount" class="tag" hidden></span>
     <div class="filters2" id="more" hidden>
-      <select id="group"><option value="">Any corporate group</option></select>
-      <select id="origin"><option value="">Made anywhere</option><option>Made in Egypt</option><option>Imported</option></select>
-      <select id="country"><option value="">Any manufacturer country</option></select>
-      <select id="storage"><option value="">Any storage</option></select>
-      <select id="species"><option value="">Any target species (veterinary)</option></select>
-      <select id="aware"><option value="">Any antibiotic group (AWaRe)</option><option value="any">Any antibiotic</option>
-        <option>Access</option><option>Watch</option><option>Reserve</option><option>Not recommended</option><option>Unlisted combination</option></select>
-      <select id="flag"><option value="">No safety flag filter</option><option value="withdrawn">Ingredient withdrawn abroad</option>
-        <option value="controlled">Controlled substance</option></select>
-      <select id="pop"><option value="">Any patient group</option><option value="child">Suitable for children</option>
-        <option value="noswallow">No tablet or capsule to swallow</option></select>
+      <label class="fl"><span>Marketing</span><select id="marketing"><option value="">Marketed or not</option></select></label>
+      <label class="fl"><span>Records</span><select id="status"><option value="">All records</option><option value="details">With details</option><option value="errors">Detail errors</option></select></label>
+      <label class="fl"><span>Corporate group</span><select id="group"><option value="">Any corporate group</option></select></label>
+      <label class="fl"><span>Origin</span><select id="origin"><option value="">Made anywhere</option><option>Made in Egypt</option><option>Imported</option></select></label>
+      <label class="fl"><span>Manufacturer country</span><select id="country"><option value="">Any manufacturer country</option></select></label>
+      <label class="fl"><span>Storage</span><select id="storage"><option value="">Any storage</option></select></label>
+      <label class="fl"><span>Target species</span><select id="species"><option value="">Any target species (veterinary)</option></select></label>
+      <label class="fl"><span>Antibiotic group</span><select id="aware"><option value="">Any antibiotic group (AWaRe)</option><option value="any">Any antibiotic</option>
+        <option>Access</option><option>Watch</option><option>Reserve</option><option>Not recommended</option><option>Unlisted combination</option></select></label>
+      <label class="fl"><span>Safety flag</span><select id="flag"><option value="">No safety flag filter</option><option value="withdrawn">Ingredient withdrawn abroad</option>
+        <option value="controlled">Controlled substance</option></select></label>
+      <label class="fl"><span>Patient group</span><select id="pop"><option value="">Any patient group</option><option value="child">Suitable for children</option>
+        <option value="noswallow">No tablet or capsule to swallow</option></select></label>
+      <label class="chk"><input type="checkbox" id="price"> has price</label>
       <label class="chk"><input type="checkbox" id="eml"> WHO essential medicine</label>
     </div>
     <div class="chips" id="active"></div>
+    <button id="reset" type="button" hidden>Clear filters</button>
   </div>
   <div class="stats" id="stats">Loading…</div>
 </header>
 <main>
-  <div id="view-drugs">
-    <section class="panel">
+  <div id="view-drugs" class="nodetail">
+    <section class="panel" aria-labelledby="listhead"><h1 id="listhead" class="sr-only">Products</h1>
+      <div class="listbar">
+        <span id="pinfo" role="status" aria-live="polite"></span>
+        <label class="fl inline"><span>Sort</span><select id="sort">
+          <option value="">Registration order</option><option value="name">Trade name</option>
+          <option value="price">Price, low → high</option><option value="price_desc">Price, high → low</option>
+          <option value="company">Company</option>
+        </select></label>
+        <details class="dd" id="savedd"><summary class="btn">Saved searches<span id="savedcount"></span> ▾</summary>
+          <div class="ddmenu">
+            <button id="savebtn" type="button">Save this search…</button>
+            <div id="savedlist"></div>
+            <a href="#/notes" id="managesaved">Manage saved searches</a>
+          </div></details>
+        <details class="dd" id="downdd"><summary class="btn">Download ▾</summary>
+          <div class="ddmenu">
+            <a id="export" href="#">CSV (opens in Excel)</a>
+            <a class="xlsx" id="exportx" href="#">Excel workbook</a>
+          </div></details>
+      </div>
       <div id="suggest" class="note" style="margin:8px"></div>
-      <table id="list"><thead></thead><tbody></tbody></table>
-      <div class="pager"><button id="prev">← Prev</button><span id="pinfo"></span><button id="next">Next →</button></div>
+      <div class="tablewrap"><table id="list"><thead></thead><tbody></tbody></table></div>
+      <div class="pager"><button id="prev" type="button">← Prev</button><span id="pageinfo"></span><button id="next" type="button">Next →</button></div>
     </section>
-    <section class="panel" id="detail"><div class="empty">Pick a drug to see all of its data.</div></section>
+    <section class="panel" id="detail" aria-label="Product details"></section>
   </div>
   <section class="panel page" id="page" hidden></section>
 </main>
@@ -309,9 +355,23 @@ const BLANK = {q:"", type:"", status:"", form:"", license:"", marketing:"", comp
            ings:[], only:false, atc:null, treats:"", mfr:"", ckey:null};
 const F = {...BLANK, ings:[]};
 const CTRLS = ["q","type","status","form","license","marketing","company","sort","group","origin","country","storage","species","pop","aware","flag"];
-function readControls(){ for(const k of CTRLS) F[k] = $("#"+k).value.trim(); F.price = $("#price").checked; F.eml = $("#eml").checked; }
+function readControls(){ for(const k of CTRLS) F[k] = $("#"+k).value.trim(); F.price = $("#price").checked; F.eml = $("#eml").checked; drawMore(); }
 function writeControls(){ for(const k of CTRLS) $("#"+k).value = F[k]; $("#price").checked = F.price; $("#eml").checked = F.eml;
-  if(F.group || F.origin || F.country || F.storage || F.species || F.pop || F.aware || F.flag || F.eml) $("#more").hidden = false; }
+  if(moreCount()) $("#more").hidden = false;
+  drawMore(); }
+// "Clear filters" only when there is something to clear
+function drawReset(){
+  const any = CTRLS.some(k => k !== "sort" && F[k]) || F.price || F.eml || F.ings.length || F.atc || F.treats || F.mfr || F.ckey;
+  $("#reset").hidden = !any;
+}
+// filters behind "More filters": how many are set, shown next to the button
+const MORE = ["marketing","status","group","origin","country","storage","species","aware","flag","pop","price","eml"];
+const moreCount = () => MORE.filter(k => F[k]).length;
+function drawMore(){
+  const n = moreCount(), c = $("#morecount");
+  c.hidden = !n; c.textContent = n ? `${n} set` : "";
+  $("#morebtn").setAttribute("aria-expanded", String(!$("#more").hidden));
+}
 function params(withPage=true){
   const p = new URLSearchParams();
   for(const k of CTRLS) if(F[k]) p.set(k, F[k]);
@@ -375,8 +435,10 @@ async function loadStats(){
 let inflight = null;
 async function loadList(){
   const p = params();
-  $("#export").href = "/api/export.csv?" + params(false);
-  $("#exportx").href = "/api/export.xlsx?" + params(false);
+  // relative, so the links keep the site's folder (e.g. /eda-viewer/) on GitHub Pages
+  $("#export").href = "api/export.csv?" + params(false);
+  $("#exportx").href = "api/export.xlsx?" + params(false);
+  drawReset();
   if(inflight) inflight.abort();           // drop the previous search if still running
   const ctl = inflight = new AbortController();
   $("#pinfo").textContent = "Searching…";
@@ -387,14 +449,28 @@ async function loadList(){
   const cols = [];
   for(const r of d.rows) for(const k of Object.keys(r.list)) if(!cols.includes(k) && !/^col\d+$/.test(k) && cols.length<4) cols.push(k);
   if(!cols.length && d.rows.length) cols.push(...Object.keys(d.rows[0].list).slice(0,4));
-  $("#list thead").innerHTML = "<tr><th>#</th>"+cols.map(c=>`<th>${esc(c)}</th>`).join("")+`<th class="num">Lowest price</th><th></th></tr>`;
+  // column headers sort the list: same orders as the Sort menu
+  const SORTABLE = {"Trade Name": ["name"], "Applicant Name": ["company"], price: ["price", "price_desc"]};
+  const th = (label, key, cls="") => {
+    const opts = SORTABLE[key];
+    if(!opts) return `<th class="${cls}">${esc(label)}</th>`;
+    const on = opts.indexOf(F.sort), dir = on < 0 ? "none" : F.sort === "price_desc" ? "descending" : "ascending";
+    return `<th class="${cls}" aria-sort="${dir}"><button class="sortbtn" type="button" data-sort="${key}">${esc(label)}<span class="arr" aria-hidden="true">${on < 0 ? "↕" : dir === "descending" ? "▼" : "▲"}</span></button></th>`;
+  };
+  // EDA lists end each generic with ' ;' - show them as a clean, '; '-separated list
+  const cell = (c, v) => /generic/i.test(c) ? String(v ?? "").replace(/\s*;\s*$/, "").replace(/\s*;\s*/g, "; ") : v;
+  $("#list thead").innerHTML = "<tr>" + cols.map(c => th(c, c)).join("") + th("Lowest price", "price", "num") + `<th><span class="sr-only">Status</span></th></tr>`;
   $("#list tbody").innerHTML = d.rows.length ? d.rows.map(r =>
-    `<tr data-id="${r.id}" class="${r.id===selected?"sel":""}"><td>${r.id}</td>${cols.map(c=>`<td>${hl(r.list[c])}</td>`).join("")}
+    `<tr data-id="${r.id}" class="${r.id===selected?"sel":""}">${cols.map((c, i) => i === 0
+        ? `<td class="tn"><a href="#/drug/${r.id}">${hl(r.list[c] || "#" + r.id)}</a></td>`
+        : `<td>${hl(cell(c, r.list[c]))}</td>`).join("")}
      <td class="num">${money(r.price)}</td><td>${r.err?'<span class="tag err">error</span>':''}</td></tr>`).join("")
-    : `<tr><td class="empty" colspan="9">No products match.</td></tr>`;
+    : `<tr><td class="empty" colspan="9">No products match.<br><span class="meta">Check the spelling, try fewer letters or remove a filter.</span>
+        ${$("#reset").hidden ? "" : `<br><button type="button" onclick="showDrugList({})" style="margin-top:8px">Clear all filters</button>`}</td></tr>`;
   const pages = Math.max(1, Math.ceil(d.total/d.page_size));
-  $("#pinfo").textContent = `${d.total.toLocaleString()} results · page ${page+1} of ${pages}`
+  $("#pinfo").textContent = `${d.total.toLocaleString()} ${d.total === 1 ? "result" : "results"}`
     + (d.also && d.also.length ? ` · includes ${d.also.join(", ")}` : "");
+  $("#pageinfo").textContent = `page ${page+1} of ${pages.toLocaleString()}`;
   $("#prev").disabled = page===0; $("#next").disabled = page+1>=pages;
   suggestFor(F.q, d.total);
 }
@@ -524,14 +600,22 @@ function bars(items, {href=null, max=null, fmt=num} = {}){
 const tile = (v, l) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`;
 
 // ---------------------------------------------------------------- drug detail + equivalents
+function closeDrug(){
+  selected = null;
+  $("#view-drugs").classList.add("nodetail");
+  document.querySelectorAll("#list tbody tr.sel").forEach(tr => tr.classList.remove("sel"));
+  if(location.hash.startsWith("#/drug/")) history.replaceState(null, "", "#/");
+}
 async function showDrug(id){
   selected = id;
+  $("#view-drugs").classList.remove("nodetail");
   document.querySelectorAll("#list tbody tr").forEach(tr=>tr.classList.toggle("sel", +tr.dataset.id===id));
-  let d; try{ d = await get("/api/drug/"+id); }catch(e){ $("#detail").innerHTML=`<div class="errbox">${esc(e.message)}</div>`; return; }
+  const close = `<button class="closebtn" type="button" aria-label="Close details" title="Close">×</button>`;
+  let d; try{ d = await get("/api/drug/"+id); }catch(e){ $("#detail").innerHTML=`${close}<div class="errbox">${esc(e.message)}</div>`; return; }
   const title = d.list["Trade Name"] || (d.detail && d.detail.fields && d.detail.fields["Name"])
              || Object.values(d.list).find(v => v && v.trim()) || `Drug ${d.id}`;
   const det = d.detail || {fields:{},tables:{}}, f = d.facts || {};
-  $("#detail").innerHTML = `
+  $("#detail").innerHTML = `${close}
     <h2>${esc(title)} <button class="cmpbtn" data-cmp="${d.id}" data-name="${esc(title)}">${inTray(d.id) ? "✓ in comparison" : "+ compare"}</button></h2>
     <div class="meta">#${d.id} · <span class="tag">${esc(d.type)}</span> ${statusTags(f)} ${awareTag(d.aware)}
       ${f.company ? ` · <a href="${coHref(f.company)}">${esc(f.company)}</a>` : ""}
@@ -631,7 +715,7 @@ async function pageIngredients(){
     <p class="meta">Every active ingredient in the EDA records, grouped by compound (salts and hydrates count as their parent).
       Open one for its identifiers and products, or pick several to find combination products.</p>
     <div class="note" id="combo"></div>
-    <div class="toolbar"><input type="search" id="iq" placeholder="Find an ingredient: paracetamol, amoxicillin, ginkgo…" style="flex:1"></div>
+    <div class="toolbar"><input type="search" id="iq" aria-label="Find an ingredient" placeholder="Find an ingredient: paracetamol, amoxicillin, ginkgo…" style="flex:1"></div>
     <div id="ilist"><p class="meta">Loading…</p></div>`;
   const drawCombo = () => {
     $("#combo").innerHTML = COMBO.length
@@ -723,7 +807,7 @@ async function pageCompanies(by){
       : by === "manufacturer" ? "Factories named as manufacturer on each product, with their country."
       : "Applicants as written in the EDA records; spellings that differ only in case or punctuation are merged."}
       Counts cover the product type and origin chosen below; cosmetics are left out by default because they outnumber medicines about three to one.</p>
-    <div class="toolbar"><input type="search" id="cq" placeholder="Find…" style="flex:1">
+    <div class="toolbar"><input type="search" id="cq" aria-label="Find a company" placeholder="Find…" style="flex:1">
       <select id="ctype" aria-label="Product type">${Object.entries(TYPE_LABELS).map(([v,l]) => `<option value="${v}" ${v===type0?"selected":""}>${l}</option>`).join("")}</select>
       <select id="corigin" aria-label="Origin"><option value="">Made anywhere</option>
         <option ${origin0==="Imported"?"selected":""}>Imported</option><option ${origin0==="Made in Egypt"?"selected":""}>Made in Egypt</option></select></div>
@@ -844,7 +928,7 @@ async function pageTreats(q){
   P.innerHTML = `<h2>What it treats</h2>
     <p class="meta">Search the indications and therapeutic uses PubChem collects (from DrugBank, HSDB, StatPearls, MeSH and others) — e.g. hypertension, malaria, asthma, acne.
       This is reference information, not prescribing advice.</p>
-    <div class="toolbar"><input type="search" id="tq" placeholder="A condition or use: hypertension, diabetes, fever, scabies…" style="flex:1" value="${esc(q||"")}"></div>
+    <div class="toolbar"><input type="search" id="tq" aria-label="Condition or use" placeholder="A condition or use: hypertension, diabetes, fever, scabies…" style="flex:1" value="${esc(q||"")}"></div>
     <div id="tlist"></div>`;
   const load = async () => {
     const v = $("#tq").value.trim();
@@ -981,11 +1065,11 @@ async function pageCompare(arg){
   const searchBoxHtml = `
     <div class="cmp-add-card" style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:14px 0;">
       <div style="font-weight:600;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-        <span>➕</span> <b>Add product to comparison:</b>
+        <b>Add a product to the comparison</b>
         <span style="font-size:12px;color:var(--muted);font-weight:normal">Search brand/trade name or active ingredient (${TRAY.length}/6 selected)</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="search" id="cmp-prod-input" placeholder="Type a brand name (e.g. Panadol, Augmentin, Concor, Nexium, Brufen)..." style="flex:1;padding:8px 12px;font-size:13.5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
+        <input type="search" id="cmp-prod-input" aria-label="Product to add to the comparison" placeholder="Type a brand name (e.g. Panadol, Augmentin, Concor, Nexium, Brufen)..." style="flex:1;padding:8px 12px;font-size:13.5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
         <button id="cmp-prod-btn" class="btn primary" style="padding:8px 16px;font-size:13px;white-space:nowrap">Search</button>
       </div>
       <div id="cmp-prod-results" style="margin-top:10px;display:none"></div>
@@ -1001,7 +1085,7 @@ async function pageCompare(arg){
       {label: "Brufen vs. Cataflam (Analgesics)", q: ["Brufen 600", "Cataflam 50"]}
     ];
     const presetHtml = samplePresets.map((p, idx) => 
-      `<button class="pathway-spec-btn" onclick="addSampleProducts(${idx})">⚡ ${esc(p.label)}</button>`
+      `<button class="pathway-spec-btn" onclick="addSampleProducts(${idx})">${esc(p.label)}</button>`
     ).join(" ");
 
     P.innerHTML = `<h2>Compare products</h2>
@@ -1181,11 +1265,11 @@ async function pageCompareIngredients(arg){
   const searchBoxHtml = `
     <div class="cmp-add-card" style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:14px 0;">
       <div style="font-weight:600;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-        <span>➕</span> <b>Add active ingredient to comparison:</b>
+        <b>Add an active ingredient to the comparison</b>
         <span style="font-size:12px;color:var(--muted);font-weight:normal">Search PubChem & EDA registered molecules (${keys.length}/4 selected)</span>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <input type="search" id="cmp-ing-input" placeholder="Type active ingredient (e.g. Metformin, Omeprazole, Ciprofloxacin, Paracetamol, Ibuprofen)..." style="flex:1;padding:8px 12px;font-size:13.5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
+        <input type="search" id="cmp-ing-input" aria-label="Ingredient to add to the comparison" placeholder="Type active ingredient (e.g. Metformin, Omeprazole, Ciprofloxacin, Paracetamol, Ibuprofen)..." style="flex:1;padding:8px 12px;font-size:13.5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
         <button id="cmp-ing-btn" class="btn primary" style="padding:8px 16px;font-size:13px;white-space:nowrap">Search</button>
       </div>
       <div id="cmp-ing-results" style="margin-top:10px;display:none"></div>
@@ -1331,7 +1415,7 @@ async function pagePathways(filter){
         For other conditions, see the <a href="#/conditions">health topics</a>.</p>
       <p class="note">${esc(d.note || "")}</p>
       ${clinicalSubNav("pathways")}
-      <div class="toolbar" style="margin-bottom:12px"><input type="search" id="pw-search" placeholder="Filter by condition, ICD-10 code or guideline…" style="flex:1" value="${esc(q)}"></div>
+      <div class="toolbar" style="margin-bottom:12px"><input type="search" id="pw-search" aria-label="Filter treatment pathways" placeholder="Filter by condition, ICD-10 code or guideline…" style="flex:1" value="${esc(q)}"></div>
       ${sections || '<p class="meta">No pathway matches this filter.</p>'}`;
     let t;
     $("#pw-search").oninput = () => { clearTimeout(t); t = setTimeout(() => {
@@ -1415,7 +1499,7 @@ async function pageConditions(filter){
         Text from <a href="https://medlineplus.gov/" target="_blank" rel="noopener">MedlinePlus</a>.</p>
       ${CLIN_NOTE}
       ${clinicalSubNav("conditions")}
-      <div class="toolbar" style="margin-bottom:12px"><input type="search" id="cq" placeholder="Find a topic, symptom or ICD-10 code…" style="flex:1" value="${esc(q)}"></div>
+      <div class="toolbar" style="margin-bottom:12px"><input type="search" id="cq" aria-label="Find a health topic" placeholder="Find a topic, symptom or ICD-10 code…" style="flex:1" value="${esc(q)}"></div>
       <div class="pathway-spec-bar">${kindBtns}</div>
       <div class="pathway-spec-bar">${groupBtns}</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:8px">${num((d.rows || []).length)} topics</div>
@@ -1874,8 +1958,10 @@ const store = {
 };
 function drawSaved(){
   const s = store.get("eda_saved", []);
-  $("#saved").innerHTML = `<option value="">Saved searches${s.length ? ` (${s.length})` : ""}</option>` +
-    s.map((x, n) => `<option value="${n}">${esc(x.name)}</option>`).join("") + (s.length ? `<option value="manage">Manage saved searches…</option>` : "");
+  $("#savedcount").textContent = s.length ? ` (${s.length})` : "";
+  $("#savedlist").innerHTML = s.map((x, n) => `<button type="button" data-saved="${n}">${esc(x.name)}</button>`).join("")
+    || `<span class="meta">None saved yet.</span>`;
+  $("#managesaved").hidden = !s.length;
 }
 function saveSearch(){
   const name = prompt("Name this search:", F.q || F.company || (F.ings[0] && F.ings[0].title) || "My search");
@@ -1886,7 +1972,7 @@ function saveSearch(){
 function openSaved(v){
   if(v === "manage"){ location.hash = "#/notes"; return; }
   const s = store.get("eda_saved", [])[+v]; if(!s) return;
-  showDrugList(s.f); $("#saved").value = "";
+  showDrugList(s.f);
 }
 function notesBlock(id){
   const n = store.get("eda_notes", {})[id];
@@ -2021,6 +2107,11 @@ const AR = {
   "EU assessment reports (EMA) ↗": "تقارير التقييم الأوروبية (EMA) ↗", "Clinical trials ↗": "التجارب السريرية ↗",
   "Wikipedia ↗": "ويكيبيديا ↗", "no English Wikipedia article": "لا توجد مقالة ويكيبيديا إنجليزية", "Parent compound": "المركب الأصلي",
   "IUPAC name": "اسم IUPAC", "Loading…": "جارٍ التحميل…", "Searching…": "جارٍ البحث…", "Did you mean": "هل تقصد",
+  "Records": "السجلات", "Manufacturer country": "بلد الشركة المصنِّعة", "Antibiotic group": "مجموعة المضاد الحيوي",
+  "Safety flag": "تنبيه أمان", "Patient group": "فئة المرضى", "Sort": "الترتيب", "Registration order": "ترتيب التسجيل",
+  "Price, low → high": "السعر تصاعديًا", "Price, high → low": "السعر تنازليًا", "contains…": "يحتوي على…",
+  "Save this search…": "حفظ هذا البحث…", "Manage saved searches": "إدارة عمليات البحث المحفوظة", "None saved yet.": "لا يوجد بحث محفوظ بعد.",
+  "Download ▾": "تنزيل ▾", "CSV (opens in Excel)": "CSV (يفتح في Excel)", "Excel workbook": "ملف Excel",
 };
 Object.assign(AR, {
   "Active ingredients in products with a valid licence. Companies in the same corporate group count as one supplier. Essential medicines (WHO list) are listed first. No prices are used.":
@@ -2391,18 +2482,40 @@ function route(){
 }
 window.addEventListener("hashchange", route);
 
-$("#list tbody").addEventListener("click", e => { const tr=e.target.closest("tr[data-id]"); if(tr) location.hash = "#/drug/" + tr.dataset.id; });
+// keep the header's real height in --hdr so the sticky product panel starts below it
+new ResizeObserver(() => document.documentElement.style.setProperty("--hdr", document.querySelector("header").offsetHeight + "px"))
+  .observe(document.querySelector("header"));
+// the whole row opens the product for mouse users; the trade-name link does it for keyboard users
+$("#list tbody").addEventListener("click", e => { if(e.target.closest("a")) return; const tr=e.target.closest("tr[data-id]"); if(tr) location.hash = "#/drug/" + tr.dataset.id; });
+$("#list thead").addEventListener("click", e => {
+  const b = e.target.closest("button[data-sort]"); if(!b) return;
+  // each click moves to the next order for that column, then back to registration order
+  const cycle = {"Trade Name": ["name", ""], "Applicant Name": ["company", ""], price: ["price", "price_desc", ""]}[b.dataset.sort];
+  const i = cycle.indexOf(F.sort);
+  F.sort = i < 0 ? cycle[0] : cycle[(i + 1) % cycle.length];
+  $("#sort").value = F.sort; page = 0; loadList().then(() => { const nb = $(`#list thead button[data-sort="${b.dataset.sort}"]`); if(nb) nb.focus(); });
+});
+$("#detail").addEventListener("click", e => { if(e.target.closest(".closebtn")) closeDrug(); });
 $("#q").addEventListener("input", () => { clearTimeout(timer); timer=setTimeout(()=>{readControls(); page=0; loadList();}, 250); });
 $("#company").addEventListener("input", () => { clearTimeout(timer); timer=setTimeout(()=>{readControls(); page=0; loadList();}, 350); });
 for(const id of ["type","status","form","license","marketing","sort","price","group","origin","country","storage","species","pop","aware","flag","eml"])
   $("#"+id).onchange = () => { readControls(); page=0; loadList(); };
-$("#morebtn").onclick = () => { $("#more").hidden = !$("#more").hidden; };
-$("#filtbtn").onclick = () => { const f = $("#filters"); f.classList.toggle("open"); $("#filtbtn").textContent = f.classList.contains("open") ? "Filters ▴" : "Filters ▾"; };
+$("#morebtn").onclick = () => { $("#more").hidden = !$("#more").hidden; drawMore(); };
+$("#filtbtn").onclick = () => { const f = $("#filters"); f.classList.toggle("open"); const o = f.classList.contains("open");
+  $("#filtbtn").textContent = o ? "Filters ▴" : "Filters ▾"; $("#filtbtn").setAttribute("aria-expanded", String(o)); };
 $("#reset").onclick = () => showDrugList({});
 $("#prev").onclick = () => { page--; loadList(); };
 $("#next").onclick = () => { page++; loadList(); };
-$("#savebtn").onclick = saveSearch;
-$("#saved").onchange = () => openSaved($("#saved").value);
+$("#savebtn").onclick = () => { $("#savedd").open = false; saveSearch(); };
+$("#savedlist").onclick = e => { const b = e.target.closest("button[data-saved]"); if(b){ $("#savedd").open = false; openSaved(b.dataset.saved); } };
+// drop-down menus (details.dd): close on choosing, on a click elsewhere and on Escape
+document.addEventListener("click", e => {
+  document.querySelectorAll("details.dd[open]").forEach(d => { if(!d.contains(e.target) || e.target.closest(".ddmenu a")) d.open = false; });
+});
+document.addEventListener("keydown", e => {
+  if(e.key !== "Escape") return;
+  const d = document.querySelector("details.dd[open]"); if(d){ d.open = false; d.querySelector("summary").focus(); }
+});
 $("#langbtn").onclick = () => setLang(LANG === "ar" ? "en" : "ar");
 drawSaved();
 loadStats(); loadList(); route();

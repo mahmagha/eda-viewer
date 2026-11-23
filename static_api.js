@@ -523,7 +523,7 @@ window.STATIC_STRUCT = key => DATA + "struct/" + key.replace(/[^A-Za-z0-9_-]/g, 
 
 // the drug-list CSV link is made in the browser
 document.addEventListener("click", e => {
-  const a = e.target.closest && e.target.closest('a[href*="/api/export.csv"]');
+  const a = e.target.closest && e.target.closest('a[href*="api/export.csv"]');  // relative or absolute link
   if(!a) return;
   e.preventDefault();
   const old = a.textContent; a.textContent = "Preparing…";
