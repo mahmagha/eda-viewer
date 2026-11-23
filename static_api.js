@@ -359,6 +359,33 @@ async function apiClinicalCompare(keysStr){
   return {molecules: mols};
 }
 
+async function apiClinicalConditions(p){
+  const sum = await load("clinical/conditions_summary.json").catch(() => ({total: 0, specialties: [], rows: []}));
+  const q = (p.get("q") || "").trim().toLowerCase();
+  const spec = (p.get("specialty") || "").trim().toLowerCase();
+  let rows = sum.rows || [];
+  if(spec){
+    rows = rows.filter(r => (r.specialty || "").toLowerCase() === spec);
+  }
+  if(q){
+    rows = rows.filter(r => 
+      (r.title || "").toLowerCase().includes(q) ||
+      (r.icd10_code || "").toLowerCase().includes(q) ||
+      (r.icd10_name || "").toLowerCase().includes(q) ||
+      (r.summary || "").toLowerCase().includes(q)
+    );
+  }
+  const lim = parseInt(p.get("limit") || "50", 10);
+  const off = parseInt(p.get("offset") || "0", 10);
+  return {
+    total: rows.length,
+    limit: lim,
+    offset: off,
+    specialties: sum.specialties || [],
+    rows: rows.slice(off, off + lim)
+  };
+}
+
 // ------------------------------------------------------------------ router
 const NO_SERVER = "This online copy is read-only and has no server behind it";
 const answers = {
@@ -370,6 +397,8 @@ const answers = {
   "/api/atc": async p => { const all = await load("atc.json"), d = all[(p.get("code") || "").trim().toUpperCase()]; return d || [404, {error: "No such class"}]; },
   "/api/clinical/pathways": () => load("clinical/pathways.json"),
   "/api/clinical/pathway": p => load(`clinical/pathway/${p.get("id") || ""}.json`).catch(() => [404, {error: "Pathway not found"}]),
+  "/api/clinical/conditions": p => apiClinicalConditions(p),
+  "/api/clinical/condition": p => load(`clinical/condition/${p.get("id") || ""}.json`).catch(() => [404, {error: "Condition not found"}]),
   "/api/clinical/compare": p => apiClinicalCompare(p.get("keys") || ""),
   "/api/ingredient": async p => (await ingredientPage(p.get("key") || "")) || [404, {error: "No products with this ingredient"}],
   "/api/ingredients": p => apiIngredients(p.get("q") || ""),
