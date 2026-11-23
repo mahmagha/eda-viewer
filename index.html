@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EDA Drugs Viewer</title>
 <style>
-:root{--bg:#f6f7f9;--panel:#fff;--text:#1d2330;--muted:#677084;--line:#e1e4ea;--accent:#1a5fcf;--accent-soft:#e8f0fe;--err:#c62828;--err-soft:#fdecea;--ok:#1a7f37;--ok-soft:#e6f4ea;--track:#eef0f4}
+:root{--bg:#f6f7f9;--panel:#fff;--text:#1d2330;--muted:#677084;--line:#e1e4ea;--accent:#1a5fcf;--accent-soft:#e8f0fe;--err:#c62828;--err-soft:#fdecea;--ok:#1a7f37;--ok-soft:#e6f4ea;--track:#eef0f4;color-scheme:light dark}
 @media (prefers-color-scheme:dark){:root{--bg:#14171c;--panel:#1c2027;--text:#e6e9ef;--muted:#98a1b3;--line:#2c323c;--accent:#5b9dff;--accent-soft:#1f2b40;--err:#ff7b72;--err-soft:#3a1f1f;--ok:#56d364;--ok-soft:#1b3326;--track:#262b34}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -25,8 +25,12 @@ button,.btn{cursor:pointer;display:inline-block;border:1px solid var(--line);bor
 button.primary,.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 button:disabled{opacity:.4;cursor:default}
 select{max-width:220px}
-label.chk{display:flex;gap:5px;align-items:center;color:var(--muted);min-height:32px}
-label.chk input{width:18px;height:18px;margin:0}
+label.chk{display:flex;gap:6px;align-items:center;color:var(--text);min-height:32px}
+label.chk input{width:18px;height:18px;margin:0;accent-color:var(--accent)}
+/* checkbox group: same caption style as the other filters, boxes level with the dropdowns */
+fieldset.chkgroup{border:0;margin:0;padding:0;min-width:0}
+fieldset.chkgroup>legend{padding:0 2px;margin-bottom:2px;font-size:12px;font-weight:600;color:var(--muted)}
+.chkrow{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;min-height:36px}
 /* labelled filter: small caption above its control */
 .fl{display:inline-flex;flex-direction:column;gap:2px}
 .fl>span{font-size:12px;font-weight:600;color:var(--muted);padding-inline-start:2px}
@@ -302,8 +306,10 @@ html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
         <option value="controlled">Controlled substance</option></select></label>
       <label class="fl"><span>Patient group</span><select id="pop"><option value="">Any patient group</option><option value="child">Suitable for children</option>
         <option value="noswallow">No tablet or capsule to swallow</option></select></label>
-      <label class="chk"><input type="checkbox" id="price"> has price</label>
-      <label class="chk"><input type="checkbox" id="eml"> WHO essential medicine</label>
+      <fieldset class="chkgroup"><legend>Show only</legend><div class="chkrow">
+        <label class="chk"><input type="checkbox" id="price"> has price</label>
+        <label class="chk"><input type="checkbox" id="eml"> WHO essential medicine</label>
+      </div></fieldset>
     </div>
     <div class="chips" id="active"></div>
     <button id="reset" type="button" hidden>Clear filters</button>
@@ -2114,7 +2120,7 @@ const AR = {
   "Safety flag": "تنبيه أمان", "Patient group": "فئة المرضى", "Sort": "الترتيب", "Registration order": "ترتيب التسجيل",
   "Price, low → high": "السعر تصاعديًا", "Price, high → low": "السعر تنازليًا", "contains…": "يحتوي على…",
   "Save this search…": "حفظ هذا البحث…", "Manage saved searches": "إدارة عمليات البحث المحفوظة", "None saved yet.": "لا يوجد بحث محفوظ بعد.",
-  "Download ▾": "تنزيل ▾", "CSV (opens in Excel)": "CSV (يفتح في Excel)", "Excel workbook": "ملف Excel",
+  "Download ▾": "تنزيل ▾", "Show only": "عرض فقط", "CSV (opens in Excel)": "CSV (يفتح في Excel)", "Excel workbook": "ملف Excel",
 };
 Object.assign(AR, {
   "Active ingredients in products with a valid licence. Companies in the same corporate group count as one supplier. Essential medicines (WHO list) are listed first. No prices are used.":
