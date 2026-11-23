@@ -62,9 +62,18 @@ form.search button{font:600 17px/1 system-ui,sans-serif;padding:0 24px;border:0;
 .slip-actions{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;margin-top:20px;padding-top:14px;border-top:1px solid var(--line);font-size:15px}
 .slip-actions span{color:var(--muted)}
 .slip-actions button{position:relative;z-index:1;font:inherit;color:var(--accent);background:none;border:0;padding:8px 0;cursor:pointer;text-decoration:underline}
-.slip.turn{animation:turn .35s ease}
-@keyframes turn{from{opacity:.2;transform:translateY(6px)}to{opacity:1;transform:none}}
-@media (prefers-reduced-motion:reduce){.slip.turn{animation:none}}
+/* two cards: the next record waits behind, tilted, with its top and right edge showing */
+.deck{position:relative;padding:52px 22px 0 0}
+.slip.front{z-index:1;transition:transform .3s ease,opacity .25s ease,border-color .15s,box-shadow .15s}
+.slip.back{position:absolute;top:52px;left:0;right:22px;bottom:0;overflow:hidden;z-index:0;cursor:pointer;
+  transform:translate(20px,-50px) rotate(1deg);transform-origin:bottom left;box-shadow:none;
+  transition:transform .3s ease,opacity .3s ease,border-color .15s}
+.slip.back:hover{border-color:var(--accent)}
+.slip.back .slip-name{color:var(--muted)}
+.deck.deal .slip.front{transform:translateX(-28px) rotate(-3deg);opacity:0}
+.deck.deal .slip.back{transform:none;opacity:1}
+.deck.reset .slip{transition:none!important}
+@media (prefers-reduced-motion:reduce){.slip.front,.slip.back{transition:none}}
 section{padding:44px 0;border-top:1px solid var(--line)}
 h2.sec{font:600 26px/1.25 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
 .lede{color:var(--muted);margin:0 0 24px;max-width:62ch}
@@ -94,7 +103,7 @@ ul.features.one{grid-template-columns:1fr}
 footer{border-top:1px solid var(--line);padding:28px 0 40px;font-size:14px;color:var(--muted)}
 footer p{max-width:80ch;margin:0 0 10px}
 @media (max-width:860px){.hero{grid-template-columns:1fr;gap:36px;padding-top:16px}}
-@media (max-width:480px){form.search{flex-direction:column}form.search button{padding:14px}.slip{padding:22px 18px 16px}.slip-rows{grid-template-columns:1fr;gap:0}.slip-rows dd{margin-bottom:8px}}
+@media (max-width:480px){form.search{flex-direction:column}form.search button{padding:14px}.slip{padding:22px 18px 16px}.deck{padding:40px 10px 0 0}.slip.back{top:40px;right:10px;transform:translate(10px,-38px) rotate(1.2deg)}.slip-rows{grid-template-columns:1fr;gap:0}.slip-rows dd{margin-bottom:8px}}
 </style>
 </head>
 <body>
@@ -119,7 +128,18 @@ footer p{max-width:80ch;margin:0 0 10px}
         <p class="unofficial">An unofficial copy of the Egyptian Drug Authority's public register, not affiliated with the EDA.
           For reference only: check with the EDA and a pharmacist before relying on it.</p>
       </div>
-      <article class="slip" id="slip" aria-live="polite" aria-label="A record from the register">
+      <div class="deck" id="deck">
+      <div class="slip back" id="back" aria-hidden="true" title="Show this record"><p class="slip-head"><span>EDA registration</span><span class="reg" data-f="reg">31867</span></p>
+      <h2 class="slip-name"><span data-f="name">AUGMENTIN 1g/125mg adults</span></h2>
+      <dl class="slip-rows">
+        <dt>Active ingredients</dt><dd data-f="ings">Amoxicillin 1000 mg + Clavulanic acid 125 mg</dd>
+        <dt>Dosage form</dt><dd data-f="form">Powder for Oral Suspension</dd>
+        <dt>Applicant</dt><dd data-f="applicant">Glaxo smithkline</dd>
+        <dt>Manufacturer</dt><dd data-f="mfr">GLAXO WELLCOM PRODUCTION-FRANCE (France)</dd>
+        <dt>Lowest pack price</dt><dd data-f="price">169.00 EGP</dd>
+        <dt>Licence</dt><dd><span class="stamp" data-f="licence">Valid</span></dd>
+      </dl></div>
+      <article class="slip front" id="slip" aria-live="polite" aria-label="A record from the register">
       <p class="slip-head"><span>EDA registration</span><span class="reg" data-f="reg">34504</span></p>
       <h2 class="slip-name"><a class="slip-link" href="medicines/panadol-extra-with-optizorb-formulation-2.html" data-f="page"><span data-f="name">Panadol extra with optizorb formulation</span></a></h2>
       <dl class="slip-rows">
@@ -132,6 +152,7 @@ footer p{max-width:80ch;margin:0 0 10px}
       </dl>
       <p class="slip-actions"><span>Select the card to see the full record</span><button type="button" id="another">Show another</button></p>
       </article>
+      </div>
     </div>
 
     <section aria-labelledby="what">
@@ -185,17 +206,34 @@ function go(e){
   if(q) location.href = "app/#/list/q/" + encodeURIComponent(q);
 }
 const RECORDS = [{"id": 2, "name": "Panadol extra with optizorb formulation", "reg": "34504", "ings": ["Paracetamol 500 mg", "Caffeine 65 mg"], "form": "Film Coated Tablets", "applicant": "Alexandria Co. for Pharmaceuticals and Chemical Industries", "mfr": "Granules India Ltd. (India)", "price": "29.00 EGP", "licence": "Valid", "page": "medicines/panadol-extra-with-optizorb-formulation-2.html"}, {"id": 2126, "name": "AUGMENTIN 1g/125mg adults", "reg": "31867", "ings": ["Amoxicillin 1000 mg", "Clavulanic acid 125 mg"], "form": "Powder for Oral Suspension", "applicant": "Glaxo smithkline", "mfr": "GLAXO WELLCOM PRODUCTION-FRANCE (France)", "price": "169.00 EGP", "licence": "Valid", "page": "medicines/augmentin-1g-125mg-adults-2126.html"}, {"id": 2597, "name": "Glucophage 500 mg", "reg": "23436", "ings": ["Metformin 500 mg", "Metformin 390 mg"], "form": "Film Coated Tablets", "applicant": "Minapharm company for pharmaceuticals &chemical industries", "mfr": "Minapharm company for pharmaceuticals &chemical industries (Egypt)", "price": "12.00 EGP", "licence": "Valid", "page": "medicines/glucophage-500-mg-2597.html"}, {"id": 5144, "name": "Antinal", "reg": "24690", "ings": ["Nifuroxazide 220 mg"], "form": "Oral Suspension", "applicant": "Amoun pharmaceutical co.", "mfr": "amoun pharmaceuticals (Egypt)", "price": "24.00 EGP", "licence": "Valid", "page": "medicines/antinal-5144.html"}, {"id": 3962, "name": "Concor AMLO", "reg": "33543", "ings": ["Bisoprolol 5 mg", "Amlodipine 5 mg"], "form": "Tablets", "applicant": "Merck Limited - Egypt", "mfr": "EGIS Pharmaceuticals PLC, Bokenyfoldi ut 118-120, 1165 Budapest (Hungary)", "price": "210.00 EGP", "licence": "Valid", "page": "medicines/concor-amlo-3962.html"}, {"id": 11795, "name": "NEXIUM", "reg": "24211", "ings": ["Esomeprazole 40 mg"], "form": "Gastro resistant tablet", "applicant": "Astrazeneca Egypt for Pharmaceutical Industries", "mfr": "", "price": "122.00 EGP", "licence": "Valid", "page": "medicines/nexium-11795.html"}, {"id": 6011, "name": "Brufen® Retard", "reg": "23680", "ings": ["Ibuprofen 800 mg"], "form": "Modified Release Film Coated Tablets", "applicant": "Abbott Scientific Office", "mfr": "Kahira Pharmaceuticals and Chemical Industries (Egypt)", "price": "53.00 EGP", "licence": "Valid", "page": "medicines/brufen-retard-6011.html"}, {"id": 2511, "name": "CATAFLAM 25 mg", "reg": "21856", "ings": ["Diclofenac 25 mg"], "form": "Sugar Coated Tablets", "applicant": "NOVARTIS PHARMA", "mfr": "NOVARTIS PHARMA (Egypt)", "price": "17.00 EGP", "licence": "Valid", "page": "medicines/cataflam-25-mg-2511.html"}];
-let at = 0;
-const btn = document.getElementById("another");
-if(btn) btn.onclick = () => {
-  at = (at + 1) % RECORDS.length;
-  const r = RECORDS[at], slip = document.getElementById("slip");
-  for(const el of slip.querySelectorAll("[data-f]")){
+let at = 0, dealing = false;
+const deck = document.getElementById("deck"), front = document.getElementById("slip"), back = document.getElementById("back");
+const fill = (card, r) => {
+  for(const el of card.querySelectorAll("[data-f]")){
     const f = el.dataset.f;
     if(f === "page") el.href = r.page;
     else el.textContent = f === "ings" ? r.ings.join(" + ") : r[f];
   }
-  slip.classList.remove("turn"); void slip.offsetWidth; slip.classList.add("turn");
 };
+// "Show another": the front card slides away, the card behind comes forward, a new one goes behind it
+function another(){
+  if(dealing || RECORDS.length < 2) return;
+  at = (at + 1) % RECORDS.length;
+  const next = RECORDS[at], after = RECORDS[(at + 1) % RECORDS.length];
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches || !back){
+    fill(front, next); if(back) fill(back, after); return;
+  }
+  dealing = true;
+  deck.classList.add("deal");
+  setTimeout(() => {
+    fill(front, next); fill(back, after);
+    deck.classList.add("reset"); deck.classList.remove("deal");
+    void deck.offsetWidth; deck.classList.remove("reset");
+    dealing = false;
+  }, 320);
+}
+const btn = document.getElementById("another");
+if(btn) btn.onclick = another;
+if(back) back.onclick = another;
 </script>
 </body></html>
