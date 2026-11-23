@@ -386,6 +386,44 @@ async function apiClinicalConditions(p){
   };
 }
 
+async function apiOntologyLookup(codeStr){
+  const cwList = await load("clinical/ontology_crosswalks.json").catch(() => []);
+  const clean = (codeStr || "").trim().toUpperCase();
+  const results = [];
+  for(const item of cwList){
+    let matchedAxis = null, matchedSystem = null, matchedNode = null;
+    for(const [axName, axDict] of Object.entries(item.axes || {})){
+      for(const [sysId, codeInfo] of Object.entries(axDict)){
+        const target = String(codeInfo.code || "").trim().toUpperCase();
+        if(target === clean || (clean.length > 2 && target.includes(clean))){
+          matchedAxis = axName;
+          matchedSystem = sysId;
+          matchedNode = codeInfo;
+          break;
+        }
+      }
+      if(matchedAxis) break;
+    }
+    if(matchedAxis){
+      const rels = {};
+      for(const [ax, axDict] of Object.entries(item.axes)){
+        if(ax !== matchedAxis) rels[ax] = axDict;
+      }
+      results.push({
+        query_code: codeStr,
+        identified_system: matchedSystem,
+        identified_axis: matchedAxis,
+        matched_entry: matchedNode,
+        condition_id: item.condition_id,
+        condition_name: item.canonical_name,
+        specialty: item.specialty,
+        cross_axial_relations: rels
+      });
+    }
+  }
+  return {found: results.length > 0, results};
+}
+
 // ------------------------------------------------------------------ router
 const NO_SERVER = "This online copy is read-only and has no server behind it";
 const answers = {
@@ -400,6 +438,9 @@ const answers = {
   "/api/clinical/conditions": p => apiClinicalConditions(p),
   "/api/clinical/condition": p => load(`clinical/condition/${p.get("id") || ""}.json`).catch(() => [404, {error: "Condition not found"}]),
   "/api/clinical/compare": p => apiClinicalCompare(p.get("keys") || ""),
+  "/api/clinical/ontology/systems": () => load("clinical/ontology_systems.json"),
+  "/api/clinical/ontology/crosswalk": p => load(`clinical/crosswalk/${p.get("id") || ""}.json`).catch(() => [404, {error: "Crosswalk not found"}]),
+  "/api/clinical/ontology/lookup": p => apiOntologyLookup(p.get("code") || ""),
   "/api/ingredient": async p => (await ingredientPage(p.get("key") || "")) || [404, {error: "No products with this ingredient"}],
   "/api/ingredients": p => apiIngredients(p.get("q") || ""),
   "/api/companies": p => apiCompanies(p.get("q") || "", p.get("by") || "applicant", p.get("type") || "", p.get("origin") || ""),
