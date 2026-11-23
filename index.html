@@ -51,8 +51,17 @@ form.search button{font:600 17px/1 system-ui,sans-serif;padding:0 24px;border:0;
 .slip-rows dt{color:var(--muted)}
 .slip-rows dd{margin:0;font-weight:500;overflow-wrap:anywhere}
 .stamp{display:inline-block;border:1.5px solid var(--stamp);color:var(--stamp);border-radius:6px;padding:0 8px;font-weight:600;transform:rotate(-2deg)}
-.slip-actions{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:20px;padding-top:14px;border-top:1px solid var(--line);font-size:15px}
-.slip-actions button{font:inherit;color:var(--accent);background:none;border:0;padding:6px 0;cursor:pointer;text-decoration:underline}
+/* the whole card opens the medicine's page: the name's link stretches over the card */
+.slip-link{color:inherit;text-decoration:none}
+.slip-link::after{content:"";position:absolute;inset:0;border-radius:inherit}
+.slip-link:focus-visible{outline:none}
+.slip{cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.slip:hover{border-color:var(--accent);box-shadow:0 22px 44px -22px rgba(20,60,140,.45)}
+.slip:hover .slip-name span{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.slip:has(.slip-link:focus-visible){outline:3px solid var(--accent);outline-offset:3px}
+.slip-actions{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;margin-top:20px;padding-top:14px;border-top:1px solid var(--line);font-size:15px}
+.slip-actions span{color:var(--muted)}
+.slip-actions button{position:relative;z-index:1;font:inherit;color:var(--accent);background:none;border:0;padding:8px 0;cursor:pointer;text-decoration:underline}
 .slip.turn{animation:turn .35s ease}
 @keyframes turn{from{opacity:.2;transform:translateY(6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.slip.turn{animation:none}}
@@ -65,6 +74,18 @@ ul.features a{display:block;padding:16px 0;text-decoration:none;color:var(--ink)
 ul.features a:hover .f-title{text-decoration:underline}
 .f-title{display:block;font-weight:600;color:var(--accent);font-size:17px}
 .f-text{display:block;color:var(--muted);font-size:15px;margin-top:2px}
+.clin{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px 56px;align-items:start}
+h3.sub{font:600 18px/1.3 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 12px}
+.pw{columns:2 220px;column-gap:32px}
+.pw-group{break-inside:avoid;margin:0 0 14px}
+.pw-cat{margin:0 0 2px;font-size:14px;color:var(--muted)}
+.pw ul{list-style:none;margin:0;padding:0}
+.pw li{margin:2px 0}
+.pw a{text-decoration:none;font-weight:500;line-height:1.4}
+.pw a:hover{text-decoration:underline}
+.caution{font-size:14px;color:var(--muted);margin:10px 0 0;max-width:60ch;border-inline-start:3px solid var(--line);padding-inline-start:12px}
+ul.features.one{grid-template-columns:1fr}
+@media (max-width:860px){.clin{grid-template-columns:1fr}}
 .facts{font-size:18px;max-width:68ch;margin:0}
 .facts b{font-variant-numeric:tabular-nums}
 .alpha{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
@@ -100,7 +121,7 @@ footer p{max-width:80ch;margin:0 0 10px}
       </div>
       <article class="slip" id="slip" aria-live="polite" aria-label="A record from the register">
       <p class="slip-head"><span>EDA registration</span><span class="reg" data-f="reg">34504</span></p>
-      <h2 class="slip-name" data-f="name">Panadol extra with optizorb formulation</h2>
+      <h2 class="slip-name"><a class="slip-link" href="medicines/panadol-extra-with-optizorb-formulation-2.html" data-f="page"><span data-f="name">Panadol extra with optizorb formulation</span></a></h2>
       <dl class="slip-rows">
         <dt>Active ingredients</dt><dd data-f="ings">Paracetamol 500 mg + Caffeine 65 mg</dd>
         <dt>Dosage form</dt><dd data-f="form">Film Coated Tablets</dd>
@@ -109,14 +130,31 @@ footer p{max-width:80ch;margin:0 0 10px}
         <dt>Lowest pack price</dt><dd data-f="price">29.00 EGP</dd>
         <dt>Licence</dt><dd><span class="stamp" data-f="licence">Valid</span></dd>
       </dl>
-      <p class="slip-actions"><a href="medicines/panadol-extra-with-optizorb-formulation-2.html" data-f="page">Open this record</a><button type="button" id="another">Show another</button></p>
+      <p class="slip-actions"><span>Select the card to see the full record</span><button type="button" id="another">Show another</button></p>
       </article>
     </div>
 
     <section aria-labelledby="what">
       <h2 class="sec" id="what">What you can look up</h2>
       <p class="lede">The full register is in the viewer. Each entry below opens the matching screen.</p>
-      <ul class="features"><li><a href="app/#/"><span class="f-title">Find equivalents</span><span class="f-text">Products with the same active ingredients and strength, with their dosage forms and lowest pack prices.</span></a></li><li><a href="browse/ingredients.html"><span class="f-title">Look up an active ingredient</span><span class="f-text">Every product that contains it, plus identifiers, pharmacology and safety notes from PubChem.</span></a></li><li><a href="app/#/companies"><span class="f-title">See who makes and registers it</span><span class="f-text">Applicants, manufacturers, corporate groups and the country each product is made in.</span></a></li><li><a href="app/#/antibiotics"><span class="f-title">Check antibiotics</span><span class="f-text">Registered antibiotics sorted into the WHO AWaRe groups: Access, Watch and Reserve.</span></a></li><li><a href="app/#/market"><span class="f-title">Spot supply risks</span><span class="f-text">Ingredients with a single supplier, made only abroad, or registered but not marketed.</span></a></li><li><a href="app/#/compare"><span class="f-title">Compare products side by side</span><span class="f-text">Up to six products in one table: ingredients, packs, prices, companies and storage.</span></a></li><li><a href="app/#/pathways"><span class="f-title">Read treatment pathways and health topics</span><span class="f-text">Fourteen hand-written pathway summaries and the MedlinePlus health topics, with their medicines.</span></a></li></ul>
+      <ul class="features"><li><a href="app/#/"><span class="f-title">Find equivalents</span><span class="f-text">Products with the same active ingredients and strength, with their dosage forms and lowest pack prices.</span></a></li><li><a href="browse/ingredients.html"><span class="f-title">Look up an active ingredient</span><span class="f-text">Every product that contains it, plus identifiers, pharmacology and safety notes from PubChem.</span></a></li><li><a href="app/#/companies"><span class="f-title">See who makes and registers it</span><span class="f-text">Applicants, manufacturers, corporate groups and the country each product is made in.</span></a></li><li><a href="app/#/antibiotics"><span class="f-title">Check antibiotics</span><span class="f-text">Registered antibiotics sorted into the WHO AWaRe groups: Access, Watch and Reserve.</span></a></li><li><a href="app/#/market"><span class="f-title">Spot supply risks</span><span class="f-text">Ingredients with a single supplier, made only abroad, or registered but not marketed.</span></a></li><li><a href="app/#/compare"><span class="f-title">Compare products side by side</span><span class="f-text">Up to six products in one table: ingredients, packs, prices, companies and storage.</span></a></li></ul>
+    </section>
+
+    <section aria-labelledby="clinical">
+      <h2 class="sec" id="clinical">Clinical reference</h2>
+      <p class="lede">For pharmacists and prescribers: treatment pathways for common conditions, linked to the medicines registered in Egypt.</p>
+      <div class="clin">
+        <div>
+          <h3 class="sub">Treatment pathways</h3>
+          <div class="pw"><div class="pw-group"><p class="pw-cat">Endocrinology</p><ul><li><a href="app/#/pathway/type2_diabetes">Type 2 Diabetes Mellitus</a></li></ul></div><div class="pw-group"><p class="pw-cat">Cardiology</p><ul><li><a href="app/#/pathway/hypertension">Essential Hypertension</a></li><li><a href="app/#/pathway/heart_failure">Heart Failure with Reduced Ejection Fraction (HFrEF)</a></li><li><a href="app/#/pathway/dyslipidemia">Dyslipidemia &amp; ASCVD Risk Reduction</a></li></ul></div><div class="pw-group"><p class="pw-cat">Pulmonology</p><ul><li><a href="app/#/pathway/asthma">Bronchial Asthma (Adolescents &amp; Adults)</a></li><li><a href="app/#/pathway/copd">Chronic Obstructive Pulmonary Disease (COPD)</a></li></ul></div><div class="pw-group"><p class="pw-cat">Gastroenterology</p><ul><li><a href="app/#/pathway/gerd_peptic_ulcer">GERD &amp; Peptic Ulcer Disease</a></li></ul></div><div class="pw-group"><p class="pw-cat">Infectious Disease</p><ul><li><a href="app/#/pathway/community_pneumonia">Community-Acquired Pneumonia (Outpatient Adult)</a></li><li><a href="app/#/pathway/uncomplicated_uti">Acute Uncomplicated Cystitis (UTI in Women)</a></li></ul></div><div class="pw-group"><p class="pw-cat">Psychiatry</p><ul><li><a href="app/#/pathway/depression_anxiety">Major Depressive Disorder &amp; Generalized Anxiety</a></li></ul></div><div class="pw-group"><p class="pw-cat">Dermatology</p><ul><li><a href="app/#/pathway/acne_vulgaris">Acne Vulgaris</a></li><li><a href="app/#/pathway/atopic_dermatitis">Atopic Dermatitis &amp; Eczema</a></li><li><a href="app/#/pathway/plaque_psoriasis">Plaque Psoriasis</a></li><li><a href="app/#/pathway/superficial_fungal_infections">Superficial Fungal Skin &amp; Nail Infections</a></li></ul></div></div>
+          <p class="caution">Each pathway is a summary written for this site from the guideline it names. The guideline bodies have not
+            reviewed or endorsed it, and it is not medical advice: check the current guideline and the product leaflet.</p>
+        </div>
+        <div>
+          <h3 class="sub">More clinical tools</h3>
+          <ul class="features one"><li><a href="app/#/conditions"><span class="f-title">Health topics</span><span class="f-text">1,017 MedlinePlus topics (808 conditions), each with the registered medicines whose indications mention it.</span></a></li><li><a href="app/#/treats"><span class="f-title">What it treats</span><span class="f-text">Search indications and therapeutic uses, such as hypertension or scabies, to find the ingredients and products.</span></a></li><li><a href="app/#/compare/ingredients"><span class="f-title">Compare active ingredients</span><span class="f-text">Two to four ingredients side by side: class, pharmacology, safety notes and Egyptian products.</span></a></li><li><a href="app/#/ontology"><span class="f-title">Coding systems</span><span class="f-text">Reference for 38 medical coding systems, such as ICD-10, SNOMED CT and MeSH, with cross-mappings for selected conditions.</span></a></li></ul>
+        </div>
+      </div>
     </section>
 
     <section aria-labelledby="inside">
