@@ -328,11 +328,23 @@ async function apiClinicalCompare(keysStr){
     if(!g && !page) continue;
     const comp = (page && page.compound) || {};
     const title = (page && page.title) || (g && g.title) || k;
-    const allSecs = [...(page && page.pharm || []), ...(page && page.safety || []), ...(page && page.populations || [])];
+    const allSecs = [...(page && Array.isArray(page.pharm) ? page.pharm : []), ...(page && Array.isArray(page.safety) ? page.safety : [])];
     const secObj = {};
     for(const [targetSec, secNames] of Object.entries(SEC_MAP)){
       const hit = allSecs.find(s => secNames.includes(s.section));
-      secObj[targetSec] = hit ? hit.text : null;
+      let txt = null;
+      if(hit){
+        if(typeof hit.text === "string") txt = hit.text;
+        else if(Array.isArray(hit.items) && hit.items.length){
+          const it = hit.items.find(x => x && x.text) || hit.items[0];
+          txt = (it && it.text) || null;
+        }
+      }
+      secObj[targetSec] = txt;
+    }
+    if(!secObj.special_populations && page && page.populations && typeof page.populations === "object" && !Array.isArray(page.populations)){
+      const popVals = Object.values(page.populations).map(v => v && v.label ? `${v.label} (${v.count} forms)` : null).filter(Boolean);
+      if(popVals.length) secObj.special_populations = popVals.join(" • ");
     }
     const drugs = g ? g.drugs : [];
     const forms = [...new Set(drugs.map(r => r.form).filter(Boolean))].slice(0, 5);
