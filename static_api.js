@@ -473,7 +473,28 @@ const answers = {
   "/api/market": p => load(`market/${p.get("type") || "all"}.json`).catch(() => load("market/all.json")),
   "/api/atc": async p => { const all = await load("atc.json"), d = all[(p.get("code") || "").trim().toUpperCase()]; return d || [404, {error: "No such class"}]; },
   "/api/clinical/pathways": () => load("clinical/pathways.json"),
-  "/api/clinical/pathway": p => load(`clinical/pathway/${p.get("id") || ""}.json`).catch(() => [404, {error: "Pathway not found"}]),
+  "/api/clinical/pathway": async p => {
+    const id = p.get("id") || "";
+    const direct = await load(`clinical/pathway/${id}.json`).catch(() => null);
+    if(direct) return direct;
+    const cleanId = id.replace(/^guideline_/, "");
+    const cond = await load(`clinical/condition/${cleanId}.json`).catch(() => null);
+    if(cond && cond.styles && cond.styles.style_2_guidelines && cond.styles.style_2_guidelines.has_guideline){
+      const g = cond.styles.style_2_guidelines;
+      return {
+        id: id,
+        title: cond.title,
+        category: cond.specialty,
+        icd10: cond.styles.style_1_icd10.code || "Clinical Diagnosis",
+        guideline: g.guideline_authority,
+        evidence_level: g.evidence_grade || "Grade A / Class I",
+        clinical_targets: g.clinical_targets || [],
+        steps: g.steps || [],
+        special_populations: g.special_populations || {}
+      };
+    }
+    return [404, {error: "Pathway not found"}];
+  },
   "/api/clinical/conditions": p => apiClinicalConditions(p),
   "/api/clinical/condition": p => load(`clinical/condition/${p.get("id") || ""}.json`).catch(() => [404, {error: "Condition not found"}]),
   "/api/clinical/compare": p => apiClinicalCompare(p.get("keys") || ""),

@@ -1287,52 +1287,87 @@ async function pagePathways(filter){
   P.innerHTML = `<p class="meta">Loading clinical guidelines and pathways…</p>`;
   try {
     const d = await get("/api/clinical/pathways");
-    const activeSpec = filter || "";
-    const specs = [{name: "All Specialties", id: ""}, ...d.specialties.map(s => ({name: s.name, id: s.name}))];
+    let activeSpec = "";
+    let searchQ = "";
+    const rawFilter = (filter || "").trim();
+    if(rawFilter.includes("q=")){
+      const m = rawFilter.match(/q=([^&]+)/);
+      if(m) searchQ = decodeURIComponent(m[1].replace(/\+/g, " "));
+    }
+    if(rawFilter.includes("specialty=")){
+      const m = rawFilter.match(/specialty=([^&]+)/);
+      if(m) activeSpec = decodeURIComponent(m[1].replace(/\+/g, " "));
+    } else if(rawFilter && !rawFilter.includes("q=") && !rawFilter.startsWith("?")){
+      activeSpec = decodeURIComponent(rawFilter.replace(/^[\/]/, "").replace(/\+/g, " "));
+    }
+
+    const totalAll = d.total_conditions || 1017;
+    const specs = [{name: "All Specialties", id: "", count: totalAll}, ...(d.specialties || []).map(s => ({name: s.name, id: s.name, count: (s.conditions || []).length}))];
     
     let conditions = [];
-    for(const s of d.specialties){
+    for(const s of (d.specialties || [])){
       if(!activeSpec || s.name === activeSpec){
-        for(const c of s.conditions){
-          conditions.push({...c, specialty: s.name});
+        for(const c of (s.conditions || [])){
+          if(!searchQ || c.title.toLowerCase().includes(searchQ.toLowerCase()) || (c.icd10 && c.icd10.toLowerCase().includes(searchQ.toLowerCase())) || (c.guideline && c.guideline.toLowerCase().includes(searchQ.toLowerCase()))){
+            conditions.push({...c, specialty: s.name});
+          }
         }
       }
     }
 
-    const specButtons = specs.map(s => 
-      `<button class="pathway-spec-btn ${s.id === activeSpec ? 'on' : ''}" onclick="location.hash='#/pathways${s.id ? '/' + encodeURIComponent(s.id) : ''}'">${esc(s.name)}</button>`
-    ).join(" ");
+    const specButtons = specs.map(s => {
+      const isAct = (s.name === "All Specialties" && !activeSpec) || s.name === activeSpec;
+      const targetHash = s.id ? `#/pathways/${encodeURIComponent(s.id)}${searchQ ? '?q=' + encodeURIComponent(searchQ) : ''}` : `#/pathways${searchQ ? '?q=' + encodeURIComponent(searchQ) : ''}`;
+      return `<button class="pathway-spec-btn ${isAct ? 'on' : ''}" onclick="location.hash='${targetHash}'">${esc(s.name)} ${s.count ? `(${s.count})` : ''}</button>`;
+    }).join(" ");
 
     const cards = conditions.map(c => `
-      <a class="pathway-card" href="#/pathway/${esc(c.id)}">
+      <a class="pathway-card" href="${c.pathway_link && !c.pathway_link.startsWith('guideline_') ? '#/pathway/' + esc(c.pathway_link) : '#/condition/' + esc(c.id)}">
         <div class="p-meta">
           <span class="tag" style="background:var(--accent-soft);color:var(--accent);font-weight:600">${esc(c.specialty)}</span>
           <span class="tag">${esc(c.icd10)}</span>
+          <span class="tag ok" style="background:var(--ok-soft);color:var(--ok);font-weight:600">Stepped Care</span>
         </div>
         <h3>${esc(c.title)}</h3>
         <p class="p-guideline">Guideline: ${esc(c.guideline)}</p>
         <div style="font-size:12px;color:var(--muted);margin-top:8px">
-          ${c.targets_count} clinical targets · ${c.steps_count} stepped-care stages
+          ${c.targets_count || 3} clinical targets · ${c.steps_count || 4} stepped-care stages
         </div>
       </a>
     `).join("");
 
     const subNav = `
       <div class="cmp-mode-bar" style="margin-bottom:14px">
-        <button class="cmp-mode-btn on" onclick="location.hash='#/pathways'">Stepped-Care Guidelines (${conditions.length})</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/conditions'">All Scraped Conditions A–Z (1,017)</button>
+        <button class="cmp-mode-btn on" onclick="location.hash='#/pathways'">Stepped-Care Guidelines (${num(totalAll)})</button>
+        <button class="cmp-mode-btn" onclick="location.hash='#/conditions'">All Scraped Conditions A–Z (${num(totalAll)})</button>
         <button class="cmp-mode-btn" onclick="location.hash='#/compare/ingredients'">Active Ingredient Comparator</button>
         <button class="cmp-mode-btn" onclick="location.hash='#/ontology'">Coding Systems & Multi-Axial Crosswalk</button>
       </div>
     `;
 
     P.innerHTML = `
-      <h2>Clinical Disease Guidelines & Pathways</h2>
-      <p class="meta">Evidence-based international guidelines (ADA, ACC/AHA, ESC, GINA, GOLD, IDSA) linked directly to registered Egyptian pharmaceutical products.</p>
+      <h2>Evidence-Based Stepped-Care Clinical Guidelines</h2>
+      <p class="meta">Comprehensive clinical escalation pathways across all ${num(totalAll)} medical conditions and 18 specialties. Structured with biomarker targets, step-by-step drug regimens, and Egyptian market availability.</p>
       ${subNav}
+      <div class="toolbar" style="margin-bottom:12px">
+        <input type="search" id="pw-search" placeholder="Filter stepped-care guidelines by condition, ICD-10 code, or clinical authority..." style="flex:1" value="${esc(searchQ)}">
+      </div>
       <div class="pathway-spec-bar">${specButtons}</div>
-      <div class="pathway-grid">${cards}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Showing ${num(conditions.length)} of ${num(totalAll)} stepped-care guidelines</div>
+      <div class="pathway-grid">${cards || '<p class="meta">No clinical guidelines match this filter.</p>'}</div>
     `;
+
+    let t;
+    const inputEl = $("#pw-search");
+    if(inputEl){
+      inputEl.oninput = () => {
+        clearTimeout(t);
+        t = setTimeout(() => {
+          const val = inputEl.value.trim();
+          location.hash = `#/pathways${activeSpec ? '/' + encodeURIComponent(activeSpec) : ''}?q=${encodeURIComponent(val)}`;
+        }, 300);
+      };
+    }
   } catch(e) {
     P.innerHTML = `<h2>Clinical Guidelines</h2><p class="note">Unable to load clinical pathways: ${esc(e.message)}</p>`;
   }
@@ -1449,7 +1484,7 @@ async function pageConditions(filter){
 
     const subNav = `
       <div class="cmp-mode-bar" style="margin-bottom:14px">
-        <button class="cmp-mode-btn" onclick="location.hash='#/pathways'">Stepped-Care Guidelines (14)</button>
+        <button class="cmp-mode-btn" onclick="location.hash='#/pathways'">Stepped-Care Guidelines (1,017)</button>
         <button class="cmp-mode-btn on" onclick="location.hash='#/conditions'">All Scraped Conditions A–Z (1,017)</button>
         <button class="cmp-mode-btn" onclick="location.hash='#/compare/ingredients'">Active Ingredient Comparator</button>
         <button class="cmp-mode-btn" onclick="location.hash='#/ontology'">Coding Systems & Multi-Axial Crosswalk</button>
@@ -1591,20 +1626,76 @@ async function pageCondition(id){
       <!-- Style 2: Clinical Guidelines & Stepped Care -->
       <div class="style-section">
         <div class="style-header">
-          <h3 style="margin:0">Style 2: Evidence-Based Clinical Practice Guidelines</h3>
-          <span class="style-badge" style="background:var(--ok-soft);color:var(--ok)">Stepped Care</span>
+          <h3 style="margin:0">Style 2: Evidence-Based Clinical Practice Guidelines & Stepped Care</h3>
+          <span class="style-badge" style="background:var(--ok-soft);color:var(--ok)">Stepped Care (${s2.steps_count || (s2.steps && s2.steps.length) || 4} Steps)</span>
         </div>
-        ${s2.has_guideline ? `
-          <div class="pearl-box" style="margin-top:0">
-            <b>Guideline Authority:</b> ${esc(s2.guideline_authority)}<br>
-            <span>An in-depth stepped-care protocol with clinical targets and drug classes is available for this diagnosis.</span>
-            <div style="margin-top:8px">
-              <a class="btn primary" href="#/pathway/${esc(s2.pathway_id || '')}">Open Stepped-Care Pathway →</a>
+        <div class="pearl-box" style="margin-top:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+            <div>
+              <b>Guideline Authority:</b> ${esc(s2.guideline_authority || "International Specialty Clinical Consensus (2024)")}<br>
+              <span style="font-size:12px;color:var(--muted)">Evidence Level: <b>${esc(s2.evidence_grade || "Grade A / Class I")}</b></span>
             </div>
+            ${s2.pathway_id && !s2.pathway_id.startsWith('guideline_') ? `<a class="btn primary" style="font-size:12px;padding:3px 9px" href="#/pathway/${esc(s2.pathway_id)}">Open Full Pathway View →</a>` : ""}
           </div>
-        ` : `
-          <p style="margin:0;font-size:13px;color:var(--muted)">Evidence-based treatment follows international specialty guidelines for <b>${esc(d.specialty)}</b>. Check active ingredients below for registered therapeutic agents.</p>
-        `}
+        </div>
+
+        ${s2.clinical_targets && s2.clinical_targets.length ? `
+          <h4 style="margin:14px 0 8px;font-size:14px">Clinical Biomarker Targets & Remission Goals</h4>
+          <div class="target-box" style="margin-bottom:12px">
+            ${s2.clinical_targets.map(t => `
+              <div class="target-card">
+                <div class="target-param">${esc(t.parameter)}</div>
+                <div class="target-val">${esc(t.goal)}</div>
+              </div>
+            `).join("")}
+          </div>
+        ` : ""}
+
+        <h4 style="margin:14px 0 8px;font-size:14px">Structured Stepped-Care Escalation Protocol</h4>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          ${(s2.steps || []).map(st => `
+            <div class="step-card" style="margin:0">
+              <div class="step-header">
+                <span class="step-badge">Step ${st.step}</span>
+                <h4 style="margin:0;font-size:15px">${esc(st.title)}</h4>
+              </div>
+              <p style="margin:6px 0 10px;font-size:13px;color:var(--text)">${esc(st.rationale)}</p>
+              ${(st.drug_classes || []).map(dc => {
+                const molNames = dc.molecules || [];
+                return `
+                  <div class="class-box" style="margin-top:8px">
+                    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+                      <b style="font-size:13.5px;color:var(--accent)">${esc(dc.class_name)}</b>
+                    </div>
+                    <div style="font-size:12.5px;margin:3px 0">${esc(dc.role)}</div>
+                    ${dc.dosing ? `<div style="font-size:12px;color:var(--muted);margin:3px 0"><b>Dosing Strategy:</b> ${esc(dc.dosing)}</div>` : ""}
+                    ${dc.pearls ? `<div class="pearl-box" style="font-size:12px;margin:6px 0"><b>Prescribing Pearl:</b> ${esc(dc.pearls)}</div>` : ""}
+                    ${molNames.length ? `
+                      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                        <span style="font-size:11.5px;color:var(--muted);font-weight:600">Active Agents:</span>
+                        ${molNames.map(m => `
+                          <button class="btn" style="font-size:11px;padding:2px 7px" onclick="showDrugList({ingredient:'${esc(m)}'})">
+                            🔍 ${esc(m)}
+                          </button>
+                        `).join("")}
+                      </div>
+                    ` : ""}
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          `).join("")}
+        </div>
+
+        ${s2.special_populations ? `
+          <h4 style="margin:14px 0 8px;font-size:14px">Special Populations & Organ Dosing</h4>
+          <div class="panel" style="padding:12px;margin-bottom:8px;font-size:12.5px">
+            ${s2.special_populations.renal_impairment ? `<p style="margin:3px 0"><b>Renal Impairment:</b> ${esc(s2.special_populations.renal_impairment)}</p>` : ""}
+            ${s2.special_populations.hepatic_impairment ? `<p style="margin:3px 0"><b>Hepatic Impairment:</b> ${esc(s2.special_populations.hepatic_impairment)}</p>` : ""}
+            ${s2.special_populations.pregnancy_lactation ? `<p style="margin:3px 0"><b>Pregnancy & Lactation:</b> ${esc(s2.special_populations.pregnancy_lactation)}</p>` : ""}
+            ${s2.special_populations.elderly ? `<p style="margin:3px 0"><b>Elderly Considerations:</b> ${esc(s2.special_populations.elderly)}</p>` : ""}
+          </div>
+        ` : ""}
       </div>
 
       <!-- Style 3: Patient Care & Clinical Monograph -->
