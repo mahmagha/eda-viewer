@@ -6,7 +6,7 @@
 // answers with a short explanation instead.
 (function(){
 "use strict";
-const DATA = "data/";
+const DATA = "../data/";  // the viewer lives in app/, the exported data next to it in data/
 const DRUG_SHARD = 200, ING_SHARDS = 512, COMPANY_SHARDS = 256, GROUP_SHARDS = 64;
 const realFetch = window.fetch.bind(window);
 const files = new Map();
