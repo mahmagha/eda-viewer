@@ -307,6 +307,57 @@ async function apiCompare(ids){
   }
   return {products, interactions: await interactions(D, products.flatMap(p => p.ingredients.map(i => i.key)))};
 }
+async function apiClinicalCompare(keysStr){
+  const D = await db();
+  const keys = keysStr.split(",").map(k => k.trim()).filter(Boolean).slice(0, 4);
+  const mols = [];
+  const SEC_MAP = {
+    "mechanism": ["Mechanism of Action"],
+    "pharmacodynamics": ["Pharmacodynamics"],
+    "half_life": ["Biological Half-Life"],
+    "protein_binding": ["Protein Binding"],
+    "adme": ["Absorption, Distribution and Excretion", "Metabolism/Metabolites"],
+    "interactions": ["Interactions"],
+    "hepatotoxicity": ["Hepatotoxicity", "LiverTox Summary"],
+    "pregnancy_lactation": ["Effects During Pregnancy and Lactation"],
+    "special_populations": ["Populations at Special Risk"]
+  };
+  for(const k of keys){
+    const g = D.byKey.get(k);
+    const page = await ingredientPage(k).catch(() => null);
+    if(!g && !page) continue;
+    const comp = (page && page.compound) || {};
+    const title = (page && page.title) || (g && g.title) || k;
+    const allSecs = [...(page && page.pharm || []), ...(page && page.safety || []), ...(page && page.populations || [])];
+    const secObj = {};
+    for(const [targetSec, secNames] of Object.entries(SEC_MAP)){
+      const hit = allSecs.find(s => secNames.includes(s.section));
+      secObj[targetSec] = hit ? hit.text : null;
+    }
+    const drugs = g ? g.drugs : [];
+    const forms = [...new Set(drugs.map(r => r.form).filter(Boolean))].slice(0, 5);
+    const sample_brands = [...new Set(drugs.map(r => r.trade_name).filter(Boolean))].slice(0, 4);
+    mols.push({
+      cid: comp.cid || (k.startsWith("cid:") ? +k.slice(4) : null),
+      key: k,
+      title: comp.title || title,
+      atc: comp.atc || ((g && g.atc && g.atc[0]) || null),
+      cas: comp.cas || null,
+      first_approval: comp.first_approval || null,
+      eml: comp.eml != null ? !!comp.eml : (g ? g.eml : false),
+      bbw: !!comp.bbw,
+      fda_approved: !!comp.fda,
+      ema_approved: !!comp.ema,
+      sections: secObj,
+      egyptian_market: {
+        registered_drugs: drugs.length,
+        sample_brands: sample_brands,
+        dosage_forms: forms
+      }
+    });
+  }
+  return {molecules: mols};
+}
 
 // ------------------------------------------------------------------ router
 const NO_SERVER = "This online copy is read-only and has no server behind it";
@@ -317,6 +368,9 @@ const answers = {
   "/api/drugs": p => apiList(p),
   "/api/market": p => load(`market/${p.get("type") || "all"}.json`).catch(() => load("market/all.json")),
   "/api/atc": async p => { const all = await load("atc.json"), d = all[(p.get("code") || "").trim().toUpperCase()]; return d || [404, {error: "No such class"}]; },
+  "/api/clinical/pathways": () => load("clinical/pathways.json"),
+  "/api/clinical/pathway": p => load(`clinical/pathway/${p.get("id") || ""}.json`).catch(() => [404, {error: "Pathway not found"}]),
+  "/api/clinical/compare": p => apiClinicalCompare(p.get("keys") || ""),
   "/api/ingredient": async p => (await ingredientPage(p.get("key") || "")) || [404, {error: "No products with this ingredient"}],
   "/api/ingredients": p => apiIngredients(p.get("q") || ""),
   "/api/companies": p => apiCompanies(p.get("q") || "", p.get("by") || "applicant", p.get("type") || "", p.get("origin") || ""),

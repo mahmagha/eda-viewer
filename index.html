@@ -167,6 +167,29 @@ figure.struct figcaption{padding:2px 4px 0}
 @media (prefers-color-scheme:dark){figure.struct{background:#f4f5f7}figure.struct figcaption{color:#555}}
 .ix{border-inline-start:3px solid var(--err);padding:4px 10px;margin:8px 0;background:var(--err-soft);border-radius:4px}
 html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
+.pathway-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:14px}
+.pathway-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;cursor:pointer;transition:border-color .15s,box-shadow .15s;display:flex;flex-direction:column}
+.pathway-card:hover{border-color:var(--accent);box-shadow:0 3px 10px rgba(0,0,0,0.06);text-decoration:none}
+.pathway-card h3{margin:0 0 6px;font-size:15px;color:var(--text);text-transform:none;letter-spacing:normal}
+.pathway-card .p-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.pathway-card .p-guideline{font-size:12px;color:var(--muted);margin-top:auto}
+.pathway-spec-bar{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 16px}
+.pathway-spec-btn{padding:5px 12px;border-radius:16px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-size:13px;color:var(--text)}
+.pathway-spec-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.target-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:12px 0 20px}
+.target-card{background:var(--panel);border:1px solid var(--line);border-inline-start:4px solid var(--accent);padding:10px 14px;border-radius:4px}
+.target-param{font-weight:600;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.target-val{font-size:13px;margin-top:3px;font-weight:500}
+.step-card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin-bottom:16px}
+.step-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.step-badge{background:var(--accent);color:#fff;font-weight:700;font-size:11px;padding:3px 9px;border-radius:12px;text-transform:uppercase}
+.class-box{border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin-top:12px;background:var(--bg)}
+.pearl-box{background:var(--ok-soft);border-inline-start:3px solid var(--ok);padding:8px 12px;border-radius:4px;margin:8px 0;font-size:12px}
+.mol-chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin:4px 6px 4px 0}
+.mol-count{font-size:11px;background:var(--accent-soft);color:var(--accent);padding:2px 6px;border-radius:10px;font-weight:600}
+.cmp-mode-bar{display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid var(--line);padding-bottom:10px}
+.cmp-mode-btn{padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-weight:500}
+.cmp-mode-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style></head><body>
 <header>
   <div class="topbar">
@@ -174,6 +197,7 @@ html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
     <nav>
       <a href="#/" data-v="drugs">Drugs</a>
       <a href="#/ingredients" data-v="ingredients">Ingredients</a>
+      <a href="#/pathways" data-v="pathways" style="font-weight:600;color:var(--accent)">Clinical Pathways</a>
       <a href="#/treats" data-v="treats">What it treats</a>
       <a href="#/companies" data-v="companies">Companies</a>
       <a href="#/antibiotics" data-v="antibiotics">Antibiotics</a>
@@ -828,9 +852,24 @@ function pharmSection(d){
 }
 
 // ---------------------------------------------------------------- side-by-side comparison
-async function pageCompare(){
+async function pageCompare(arg){
+  const isIng = (arg && (arg.startsWith("ingredients") || arg.startsWith("keys="))) || location.hash.includes("/compare/ingredients");
+  if(isIng) { return pageCompareIngredients(arg); }
+
   const P = $("#page");
-  if(!TRAY.length){ P.innerHTML = `<h2>Compare products</h2><p class="meta">Press <b>+ compare</b> on a product (in its detail panel or any product table) to add it here. Up to 6.</p>`; return; }
+  const modeBar = `
+    <div class="cmp-mode-bar">
+      <button class="cmp-mode-btn on" onclick="location.hash='#/compare'">Compare Products (${TRAY.length})</button>
+      <button class="cmp-mode-btn" onclick="location.hash='#/compare/ingredients'">Compare Active Ingredients (Clinical)</button>
+    </div>
+  `;
+
+  if(!TRAY.length){
+    P.innerHTML = `<h2>Compare products</h2>
+      ${modeBar}
+      <p class="meta">Press <b>+ compare</b> on a product (in its detail panel or any product table) to add it here. Up to 6.</p>`;
+    return;
+  }
   P.innerHTML = `<p class="meta">Loading…</p>`;
   const d = await get("/api/compare?ids=" + TRAY.map(t => t.id).join(","));
   const ps = d.products;
@@ -862,11 +901,248 @@ async function pageCompare(){
     ${ix.length ? ix.map(x => `<div class="ix"><b><a href="${ingHref(x.a_key)}">${esc(x.a)}</a> ↔ <a href="${ingHref(x.b_key)}">${esc(x.b)}</a></b>
       <div>${esc(x.text)}</div><div class="src">— ${esc(x.source||"")}</div></div>`).join("") : `<p class="meta">None found in the interaction texts.</p>`}`;
   P.innerHTML = `<h2>Compare products</h2>
+    ${modeBar}
     <p class="meta">Highlighted rows differ between the products.</p>
     <div class="toolbar"><button id="cmpclear">Clear comparison</button></div>
     <div class="sub"><table class="cmp-t"><thead><tr><th class="rowh"></th>${ps.map(r => `<th><a href="#/drug/${r.drug_id}">${esc(r.trade_name||"#"+r.drug_id)}</a>
       <button class="cmpbtn" data-cmp="${r.drug_id}">remove</button></th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>${ixHtml}`;
   $("#cmpclear").onclick = () => { TRAY = []; saveTray(); pageCompare(); };
+}
+
+// ---------------------------------------------------------------- active ingredients clinical comparison
+async function pageCompareIngredients(arg){
+  const P = $("#page");
+  P.innerHTML = `<p class="meta">Loading active ingredient comparison…</p>`;
+
+  let keys = [];
+  if(arg && arg.includes("keys=")){
+    const m = arg.match(/keys=([^&]+)/);
+    if(m) keys = m[1].split(",").map(decodeURIComponent).filter(Boolean);
+  } else if(arg && arg.startsWith("ingredients/")){
+    keys = arg.slice(12).split(",").map(decodeURIComponent).filter(Boolean);
+  }
+  if(!keys.length){
+    keys = ["cid:60823", "cid:446157"]; // Default: Atorvastatin vs Rosuvastatin
+  }
+
+  const presets = [
+    {name: "Atorvastatin vs. Rosuvastatin (Statins)", keys: ["cid:60823", "cid:446157"]},
+    {name: "Amlodipine vs. Lercanidipine (DHP-CCBs)", keys: ["cid:2162", "cid:65866"]},
+    {name: "Empagliflozin vs. Dapagliflozin (SGLT2i)", keys: ["cid:11949646", "cid:9887712"]},
+    {name: "Esomeprazole vs. Pantoprazole (PPIs)", keys: ["cid:9568614", "cid:4679"]},
+    {name: "Escitalopram vs. Sertraline (SSRIs)", keys: ["cid:146570", "cid:68617"]},
+    {name: "Metformin vs. Empagliflozin (T2D)", keys: ["cid:14219", "cid:11949646"]},
+  ];
+
+  try {
+    const d = await get("/api/clinical/compare?keys=" + keys.join(","));
+    const mols = d.molecules || [];
+    if(!mols.length){
+      P.innerHTML = `<h2>Compare Active Ingredients</h2><p class="note">No comparison data available for selected molecules.</p>`;
+      return;
+    }
+
+    const presetButtons = presets.map(pr => 
+      `<button class="pathway-spec-btn ${pr.keys.sort().join(',') === keys.slice().sort().join(',') ? 'on' : ''}" onclick="location.hash='#/compare/ingredients?keys=${pr.keys.join(',')}'">${esc(pr.name)}</button>`
+    ).join(" ");
+
+    const modeBar = `
+      <div class="cmp-mode-bar">
+        <button class="cmp-mode-btn" onclick="location.hash='#/compare'">Compare Products (${TRAY.length})</button>
+        <button class="cmp-mode-btn on" onclick="location.hash='#/compare/ingredients'">Compare Active Ingredients (Clinical)</button>
+      </div>
+    `;
+
+    const CLINICAL_ROWS = [
+      ["Pharmacological Class & ATC", m => m.atc ? `<a href="#/atc/${m.atc}">${esc(m.atc)}</a>` : '<span class="meta">–</span>'],
+      ["WHO Essential Medicine", m => m.eml ? '<span class="tag eml">Yes (WHO EML)</span>' : '<span class="meta">No</span>'],
+      ["First Approval Year", m => m.first_approval ? esc(String(m.first_approval)) : '<span class="meta">–</span>'],
+      ["Regulatory Approvals", m => [m.fda_approved ? '<span class="tag">US FDA</span>' : '', m.ema_approved ? '<span class="tag">EMA</span>' : ''].filter(Boolean).join(" ") || '<span class="meta">–</span>'],
+      ["Mechanism of Action", m => m.sections.mechanism ? `<div style="max-height:160px;overflow-y:auto;font-size:12.5px">${esc(m.sections.mechanism)}</div>` : '<span class="meta">–</span>'],
+      ["Pharmacodynamics", m => m.sections.pharmacodynamics ? `<div style="max-height:140px;overflow-y:auto;font-size:12.5px">${esc(m.sections.pharmacodynamics)}</div>` : '<span class="meta">–</span>'],
+      ["Elimination Half-Life (t½)", m => m.sections.half_life ? `<b>${esc(m.sections.half_life)}</b>` : '<span class="meta">–</span>'],
+      ["Protein Binding", m => m.sections.protein_binding ? esc(m.sections.protein_binding) : '<span class="meta">–</span>'],
+      ["Absorption & Bioavailability", m => m.sections.adme ? `<div style="max-height:140px;overflow-y:auto;font-size:12.5px">${esc(m.sections.adme)}</div>` : '<span class="meta">–</span>'],
+      ["CYP450 & Interactions", m => m.sections.interactions ? `<div style="max-height:140px;overflow-y:auto;font-size:12.5px">${esc(m.sections.interactions)}</div>` : '<span class="meta">–</span>'],
+      ["Boxed / Black Box Warnings", m => m.bbw ? `<span class="tag" style="background:var(--err-soft);color:var(--err);font-weight:bold">Black Box Warning</span>` : '<span class="meta">None listed</span>'],
+      ["Hepatotoxicity / Liver Safety", m => m.sections.hepatotoxicity ? `<div style="max-height:140px;overflow-y:auto;font-size:12.5px">${esc(m.sections.hepatotoxicity)}</div>` : '<span class="meta">–</span>'],
+      ["Pregnancy & Lactation", m => m.sections.pregnancy_lactation ? `<div style="max-height:140px;overflow-y:auto;font-size:12.5px">${esc(m.sections.pregnancy_lactation)}</div>` : '<span class="meta">–</span>'],
+      ["Special Populations / Renal", m => m.sections.special_populations ? `<div style="max-height:140px;overflow-y:auto;font-size:12.5px">${esc(m.sections.special_populations)}</div>` : '<span class="meta">–</span>'],
+      ["Egyptian Market Availability", m => `
+        <b>${m.egyptian_market.registered_drugs} registered products</b><br>
+        <div style="font-size:11.5px;color:var(--muted);margin:4px 0">Forms: ${(m.egyptian_market.dosage_forms||[]).join(", ")}</div>
+        ${m.egyptian_market.sample_brands && m.egyptian_market.sample_brands.length ? `<div style="font-size:11px;margin-bottom:6px">Brands: ${esc(m.egyptian_market.sample_brands.join(", "))}</div>` : ""}
+        <button class="btn primary" style="font-size:11px;padding:3px 8px" onclick="showDrugList({ingredient:'${esc(m.title)}'})">View All Products in Egypt</button>
+      `]
+    ];
+
+    const body = CLINICAL_ROWS.map(([label, fn]) => {
+      return `<tr><th class="rowh" style="min-width:180px;font-size:12.5px">${label}</th>${mols.map(m => `<td>${fn(m)}</td>`).join("")}</tr>`;
+    }).join("");
+
+    P.innerHTML = `
+      <h2>Compare Active Ingredients (Clinical Pharmacology)</h2>
+      ${modeBar}
+      <p class="meta">Head-to-head clinical efficacy, pharmacokinetics, organ dose adjustment, and Egyptian market availability.</p>
+      <div style="margin:12px 0">
+        <span style="font-size:12px;color:var(--muted);font-weight:600">Quick Clinical Comparisons:</span><br>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${presetButtons}</div>
+      </div>
+      <div class="sub" style="margin-top:16px"><table class="cmp-t">
+        <thead>
+          <tr>
+            <th class="rowh">Clinical Dimension</th>
+            ${mols.map(m => `
+              <th>
+                <a href="#/ingredient/${esc(m.key)}" style="font-size:15px;font-weight:bold">${esc(m.title)}</a>
+                ${m.eml ? '<span class="tag eml" style="margin-left:4px">WHO EML</span>' : ''}
+              </th>
+            `).join("")}
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table></div>
+    `;
+  } catch(e) {
+    P.innerHTML = `<h2>Compare Active Ingredients</h2><p class="note">Error loading comparison: ${esc(e.message)}</p>`;
+  }
+}
+
+// ---------------------------------------------------------------- clinical pathways & guidelines
+async function pagePathways(filter){
+  const P = $("#page");
+  P.innerHTML = `<p class="meta">Loading clinical guidelines and pathways…</p>`;
+  try {
+    const d = await get("/api/clinical/pathways");
+    const activeSpec = filter || "";
+    const specs = [{name: "All Specialties", id: ""}, ...d.specialties.map(s => ({name: s.name, id: s.name}))];
+    
+    let conditions = [];
+    for(const s of d.specialties){
+      if(!activeSpec || s.name === activeSpec){
+        for(const c of s.conditions){
+          conditions.push({...c, specialty: s.name});
+        }
+      }
+    }
+
+    const specButtons = specs.map(s => 
+      `<button class="pathway-spec-btn ${s.id === activeSpec ? 'on' : ''}" onclick="location.hash='#/pathways${s.id ? '/' + encodeURIComponent(s.id) : ''}'">${esc(s.name)}</button>`
+    ).join(" ");
+
+    const cards = conditions.map(c => `
+      <a class="pathway-card" href="#/pathway/${esc(c.id)}">
+        <div class="p-meta">
+          <span class="tag" style="background:var(--accent-soft);color:var(--accent);font-weight:600">${esc(c.specialty)}</span>
+          <span class="tag">${esc(c.icd10)}</span>
+        </div>
+        <h3>${esc(c.title)}</h3>
+        <p class="p-guideline">Guideline: ${esc(c.guideline)}</p>
+        <div style="font-size:12px;color:var(--muted);margin-top:8px">
+          ${c.targets_count} clinical targets · ${c.steps_count} stepped-care stages
+        </div>
+      </a>
+    `).join("");
+
+    P.innerHTML = `
+      <h2>Clinical Disease Guidelines & Pathways</h2>
+      <p class="meta">Evidence-based international guidelines (ADA, ACC/AHA, ESC, GINA, GOLD, IDSA) linked directly to registered Egyptian pharmaceutical products.</p>
+      <div class="pathway-spec-bar">${specButtons}</div>
+      <div class="pathway-grid">${cards}</div>
+    `;
+  } catch(e) {
+    P.innerHTML = `<h2>Clinical Guidelines</h2><p class="note">Unable to load clinical pathways: ${esc(e.message)}</p>`;
+  }
+}
+
+async function pagePathway(id){
+  const P = $("#page");
+  P.innerHTML = `<p class="meta">Loading clinical pathway…</p>`;
+  try {
+    const p = await get("/api/clinical/pathway?id=" + encodeURIComponent(id));
+    if(!p || p.error){
+      P.innerHTML = `<p class="note">Pathway not found.</p><p><a href="#/pathways">← Back to Clinical Pathways</a></p>`;
+      return;
+    }
+
+    const targetsHtml = p.clinical_targets && p.clinical_targets.length ? `
+      <h3>Clinical Targets & Goals</h3>
+      <div class="target-box">
+        ${p.clinical_targets.map(t => `
+          <div class="target-card">
+            <div class="target-param">${esc(t.parameter)}</div>
+            <div class="target-val">${esc(t.goal)}</div>
+          </div>
+        `).join("")}
+      </div>
+    ` : "";
+
+    const stepsHtml = (p.steps || []).map(st => `
+      <div class="step-card">
+        <div class="step-header">
+          <span class="step-badge">Stage ${st.step}</span>
+          <h3 style="margin:0;font-size:16px">${esc(st.title)}</h3>
+        </div>
+        <p style="margin:6px 0 12px;font-size:13.5px;color:var(--text)">${esc(st.rationale)}</p>
+        ${(st.drug_classes || []).map(dc => {
+          const classCids = (dc.resolved_molecules || []).filter(m => m.cid).map(m => "cid:" + m.cid).join(",");
+          return `
+            <div class="class-box">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+                <b style="font-size:14px;color:var(--accent)">${esc(dc.class_name)}</b>
+                ${classCids.includes(",") ? `<button class="btn" style="font-size:11px;padding:3px 8px" onclick="location.hash='#/compare/ingredients?keys=${classCids}'">Compare Class Molecules</button>` : ""}
+              </div>
+              <div style="font-size:13px;margin:4px 0">${esc(dc.role)}</div>
+              ${dc.dosing ? `<div style="font-size:12.5px;color:var(--muted);margin:3px 0"><b>Dosing:</b> ${esc(dc.dosing)}</div>` : ""}
+              ${dc.pearls ? `<div class="pearl-box"><b>Clinical Pearl:</b> ${esc(dc.pearls)}</div>` : ""}
+              <div style="margin-top:8px">
+                <span style="font-size:12px;color:var(--muted);font-weight:600">Active Molecules (Egyptian Market):</span><br>
+                ${(dc.resolved_molecules || []).map(m => `
+                  <div class="mol-chip">
+                    <a href="${m.cid ? '#/ingredient/cid:'+m.cid : '#/'}" style="font-weight:600">${esc(m.canonical_name)}</a>
+                    <span class="mol-count">${m.drug_count} Egyptian products</span>
+                    ${m.sample_brands && m.sample_brands.length ? `<span style="font-size:11px;color:var(--muted)">e.g. ${esc(m.sample_brands.join(", "))}</span>` : ""}
+                    <button class="btn primary" style="font-size:11px;padding:2px 7px" onclick="showDrugList({ingredient:'${esc(m.canonical_name)}'})">View Products</button>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `).join("");
+
+    const specPop = p.special_populations ? `
+      <h3>Special Populations & Organ Dosing</h3>
+      <div class="panel" style="padding:14px;margin-bottom:16px">
+        ${p.special_populations.renal_impairment ? `<p style="margin:4px 0"><b>Renal Impairment:</b> ${esc(p.special_populations.renal_impairment)}</p>` : ""}
+        ${p.special_populations.hepatic_impairment ? `<p style="margin:4px 0"><b>Hepatic Impairment:</b> ${esc(p.special_populations.hepatic_impairment)}</p>` : ""}
+        ${p.special_populations.pregnancy_lactation ? `<p style="margin:4px 0"><b>Pregnancy & Lactation:</b> ${esc(p.special_populations.pregnancy_lactation)}</p>` : ""}
+        ${p.special_populations.elderly ? `<p style="margin:4px 0"><b>Elderly Considerations:</b> ${esc(p.special_populations.elderly)}</p>` : ""}
+        ${p.special_populations.cardiovascular_disease ? `<p style="margin:4px 0"><b>Cardiovascular Comorbidities:</b> ${esc(p.special_populations.cardiovascular_disease)}</p>` : ""}
+      </div>
+    ` : "";
+
+    const monitoringHtml = p.monitoring ? `
+      <h3>Monitoring & Laboratory Follow-Up</h3>
+      <div class="panel" style="padding:14px;margin-bottom:16px;background:var(--ok-soft)">
+        <p style="margin:0">${esc(p.monitoring)}</p>
+      </div>
+    ` : "";
+
+    P.innerHTML = `
+      <p><a href="#/pathways">← Back to All Clinical Pathways</a></p>
+      <h2>${esc(p.title)} <span class="tag">${esc(p.icd10)}</span> <span class="tag" style="background:var(--accent-soft);color:var(--accent)">${esc(p.category)}</span></h2>
+      <p class="src">Clinical Guideline Source: <b>${esc(p.guideline)}</b></p>
+      ${targetsHtml}
+      <h3>Stepped Care Pathway</h3>
+      ${stepsHtml}
+      ${specPop}
+      ${monitoringHtml}
+    `;
+  } catch(e) {
+    P.innerHTML = `<h2>Clinical Pathway</h2><p class="note">Unable to load pathway: ${esc(e.message)}</p><p><a href="#/pathways">← Back to Clinical Pathways</a></p>`;
+  }
 }
 
 async function pageStats(){
@@ -1566,7 +1842,7 @@ function route(){
   $("#view-drugs").hidden = !drugs; $("#page").hidden = drugs;
   $("#filters").style.display = drugs ? "" : "none";
   const v = drugs ? "drugs" : view;
-  const navv = {ingredient: "ingredients", company: "companies", manufacturer: "companies", group: "companies"}[v] || v;
+  const navv = {ingredient: "ingredients", company: "companies", manufacturer: "companies", group: "companies", pathway: "pathways", pathways: "pathways"}[v] || v;
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.v === navv));
   const mn = document.querySelector("details.morenav"); if(mn){ mn.open = false; mn.classList.toggle("on", !!mn.querySelector("a.on")); }
   if(view === "drug" && arg) showDrug(+arg);
@@ -1581,7 +1857,9 @@ function route(){
   else if(view === "countries") pageCountries();
   else if(view === "vet") pageVet(arg);
   else if(view === "treats") pageTreats(arg);
-  else if(view === "compare") pageCompare();
+  else if(view === "pathways") pagePathways(arg);
+  else if(view === "pathway") pagePathway(arg);
+  else if(view === "compare") pageCompare(arg);
   else if(view === "stats") pageStats();
   else if(view === "market") pageMarket(arg);
   else if(view === "antibiotics") pageAntibiotics();
