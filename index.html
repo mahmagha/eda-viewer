@@ -868,7 +868,84 @@ function pharmSection(d){
     </details>`).join("")}`;
 }
 
-// ---------------------------------------------------------------- side-by-side comparison
+// ---------------------------------------------------------------- side-by-side comparison helpers
+window.addSampleProducts = async function(idx){
+  const presets = [
+    ["Panadol Extra", "Adol Extra"],
+    ["Augmentin 1g", "Hibiotic 1000"],
+    ["Nexium 40", "Controloc 40"],
+    ["Concor 5", "Biconcor 5"],
+    ["Brufen 600", "Cataflam 50"]
+  ];
+  const list = presets[idx] || presets[0];
+  const P = $("#page");
+  P.innerHTML = `<p class="meta">Loading sample products…</p>`;
+  TRAY = [];
+  for(const q of list){
+    try {
+      const res = await get("/api/drugs?q=" + encodeURIComponent(q) + "&limit=1");
+      if(res && res.rows && res.rows.length){
+        const r = res.rows[0];
+        TRAY.push({id: r.drug_id, name: r.trade_name});
+      }
+    } catch(e){}
+  }
+  saveTray();
+  pageCompare();
+};
+
+function bindCmpProdSearch(){
+  const inp = $("#cmp-prod-input");
+  const btn = $("#cmp-prod-btn");
+  const resDiv = $("#cmp-prod-results");
+  if(!inp || !btn || !resDiv) return;
+
+  let timer = null;
+  const doSearch = async () => {
+    const q = inp.value.trim();
+    if(!q || q.length < 2){
+      resDiv.style.display = "none";
+      resDiv.innerHTML = "";
+      return;
+    }
+    resDiv.style.display = "block";
+    resDiv.innerHTML = `<p class="meta" style="margin:6px 0">Searching products…</p>`;
+    try {
+      const data = await get("/api/drugs?q=" + encodeURIComponent(q) + "&limit=6");
+      const rows = data.rows || [];
+      if(!rows.length){
+        resDiv.innerHTML = `<p class="meta" style="margin:6px 0">No products found matching "<b>${esc(q)}</b>".</p>`;
+        return;
+      }
+      resDiv.innerHTML = `
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Select product to add to comparison (max 6):</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${rows.map(r => `
+            <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 12px">
+              <div>
+                <a href="#/drug/${r.drug_id}" style="font-weight:600;font-size:13.5px">${esc(r.trade_name || "#" + r.drug_id)}</a>
+                <div style="font-size:12px;color:var(--muted)">${esc(ingText(r))} • ${esc(r.form || "")} • ${esc(r.company || "")} ${r.min_price != null ? "• " + money(r.min_price) : ""}</div>
+              </div>
+              <button class="btn ${inTray(r.drug_id) ? "" : "primary"}" style="font-size:12px;padding:4px 10px;white-space:nowrap" onclick="toggleTray(${r.drug_id}, '${esc(r.trade_name || "")}'); pageCompare();">
+                ${inTray(r.drug_id) ? "✓ In comparison" : "+ Add to compare"}
+              </button>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    } catch(e) {
+      resDiv.innerHTML = `<p class="note" style="margin:6px 0">Error: ${esc(e.message)}</p>`;
+    }
+  };
+
+  btn.onclick = doSearch;
+  inp.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); doSearch(); } };
+  inp.oninput = () => {
+    clearTimeout(timer);
+    timer = setTimeout(doSearch, 300);
+  };
+}
+
 async function pageCompare(arg){
   const isIng = (arg && (arg.startsWith("ingredients") || arg.startsWith("keys="))) || location.hash.includes("/compare/ingredients");
   if(isIng) { return pageCompareIngredients(arg); }
@@ -881,10 +958,41 @@ async function pageCompare(arg){
     </div>
   `;
 
+  const searchBoxHtml = `
+    <div class="cmp-add-card" style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:14px 0;">
+      <div style="font-weight:600;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span>➕</span> <b>Add product to comparison:</b>
+        <span style="font-size:12px;color:var(--muted);font-weight:normal">Search brand/trade name or active ingredient (${TRAY.length}/6 selected)</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="search" id="cmp-prod-input" placeholder="Type a brand name (e.g. Panadol, Augmentin, Concor, Nexium, Brufen)..." style="flex:1;padding:8px 12px;font-size:13.5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
+        <button id="cmp-prod-btn" class="btn primary" style="padding:8px 16px;font-size:13px;white-space:nowrap">Search</button>
+      </div>
+      <div id="cmp-prod-results" style="margin-top:10px;display:none"></div>
+    </div>
+  `;
+
   if(!TRAY.length){
+    const samplePresets = [
+      {label: "Panadol vs. Adol Extra (Paracetamol)", q: ["Panadol Extra", "Adol Extra"]},
+      {label: "Augmentin vs. Hibiotic (Amoxicillin/Clavulanate)", q: ["Augmentin 1g", "Hibiotic 1000"]},
+      {label: "Nexium vs. Controloc (PPIs)", q: ["Nexium 40", "Controloc 40"]},
+      {label: "Concor vs. Biconcor (Bisoprolol)", q: ["Concor 5", "Biconcor 5"]},
+      {label: "Brufen vs. Cataflam (Analgesics)", q: ["Brufen 600", "Cataflam 50"]}
+    ];
+    const presetHtml = samplePresets.map((p, idx) => 
+      `<button class="pathway-spec-btn" onclick="addSampleProducts(${idx})">⚡ ${esc(p.label)}</button>`
+    ).join(" ");
+
     P.innerHTML = `<h2>Compare products</h2>
       ${modeBar}
-      <p class="meta">Press <b>+ compare</b> on a product (in its detail panel or any product table) to add it here. Up to 6.</p>`;
+      ${searchBoxHtml}
+      <div style="margin:20px 0">
+        <div style="font-size:13px;color:var(--muted);font-weight:600;margin-bottom:8px">Or load a popular Egyptian market comparison:</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${presetHtml}</div>
+      </div>
+      <p class="meta" style="margin-top:16px">You can also press <b>+</b> or <b>+ compare</b> on any product in the <a href="#/">Drugs catalog</a> or in its detail dialog to add it here (up to 6).</p>`;
+    bindCmpProdSearch();
     return;
   }
   P.innerHTML = `<p class="meta">Loading…</p>`;
@@ -919,14 +1027,102 @@ async function pageCompare(arg){
       <div>${esc(x.text)}</div><div class="src">— ${esc(x.source||"")}</div></div>`).join("") : `<p class="meta">None found in the interaction texts.</p>`}`;
   P.innerHTML = `<h2>Compare products</h2>
     ${modeBar}
+    ${searchBoxHtml}
     <p class="meta">Highlighted rows differ between the products.</p>
-    <div class="toolbar"><button id="cmpclear">Clear comparison</button></div>
+    <div class="toolbar"><button id="cmpclear">Clear comparison (${TRAY.length})</button></div>
     <div class="sub"><table class="cmp-t"><thead><tr><th class="rowh"></th>${ps.map(r => `<th><a href="#/drug/${r.drug_id}">${esc(r.trade_name||"#"+r.drug_id)}</a>
       <button class="cmpbtn" data-cmp="${r.drug_id}">remove</button></th>`).join("")}</tr></thead><tbody>${body}</tbody></table></div>${ixHtml}`;
+  bindCmpProdSearch();
   $("#cmpclear").onclick = () => { TRAY = []; saveTray(); pageCompare(); };
 }
 
 // ---------------------------------------------------------------- active ingredients clinical comparison
+window.addCompareIngredient = function(key){
+  let h = location.hash.replace(/^#\/?/, "");
+  let keys = [];
+  if(h.includes("keys=")){
+    const m = h.match(/keys=([^&]+)/);
+    if(m) keys = m[1].split(",").map(decodeURIComponent).filter(Boolean);
+  } else if(h.startsWith("compare/ingredients/")){
+    keys = h.slice(20).split(",").map(decodeURIComponent).filter(Boolean);
+  }
+  if(!keys.length) keys = ["cid:60823", "cid:446157"];
+  if(keys.includes(key)){ alert("This active ingredient is already in the comparison."); return; }
+  if(keys.length >= 4){ alert("You can compare up to 4 active ingredients side-by-side. Remove one first."); return; }
+  keys.push(key);
+  location.hash = "#/compare/ingredients?keys=" + keys.join(",");
+};
+
+window.removeCompareIngredient = function(key){
+  let h = location.hash.replace(/^#\/?/, "");
+  let keys = [];
+  if(h.includes("keys=")){
+    const m = h.match(/keys=([^&]+)/);
+    if(m) keys = m[1].split(",").map(decodeURIComponent).filter(Boolean);
+  } else if(h.startsWith("compare/ingredients/")){
+    keys = h.slice(20).split(",").map(decodeURIComponent).filter(Boolean);
+  }
+  if(!keys.length) keys = ["cid:60823", "cid:446157"];
+  keys = keys.filter(k => k !== key);
+  location.hash = keys.length ? ("#/compare/ingredients?keys=" + keys.join(",")) : "#/compare/ingredients";
+};
+
+function bindCmpIngSearch(currentKeys){
+  const inp = $("#cmp-ing-input");
+  const btn = $("#cmp-ing-btn");
+  const resDiv = $("#cmp-ing-results");
+  if(!inp || !btn || !resDiv) return;
+
+  let timer = null;
+  const doSearch = async () => {
+    const q = inp.value.trim();
+    if(!q || q.length < 2){
+      resDiv.style.display = "none";
+      resDiv.innerHTML = "";
+      return;
+    }
+    resDiv.style.display = "block";
+    resDiv.innerHTML = `<p class="meta" style="margin:6px 0">Searching active ingredients…</p>`;
+    try {
+      const data = await get("/api/ingredients?q=" + encodeURIComponent(q));
+      const rows = (data.rows || []).slice(0, 6);
+      if(!rows.length){
+        resDiv.innerHTML = `<p class="meta" style="margin:6px 0">No active ingredients found matching "<b>${esc(q)}</b>".</p>`;
+        return;
+      }
+      resDiv.innerHTML = `
+        <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Select active ingredient to compare (max 4):</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${rows.map(r => {
+            const inCmp = currentKeys.includes(r.key);
+            return `
+              <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 12px">
+                <div>
+                  <a href="#/ingredient/${esc(r.key)}" style="font-weight:600;font-size:13.5px">${esc(r.title)}</a>
+                  ${r.kind ? `<span class="tag" style="margin-left:6px">${esc(r.kind)}</span>` : ""}
+                  <div style="font-size:12px;color:var(--muted)">${num(r.count)} registered products in Egypt</div>
+                </div>
+                <button class="btn ${inCmp ? "" : "primary"}" style="font-size:12px;padding:4px 10px;white-space:nowrap" onclick="${inCmp ? `removeCompareIngredient('${esc(r.key)}')` : `addCompareIngredient('${esc(r.key)}')`}">
+                  ${inCmp ? "✓ Remove" : "+ Add to compare"}
+                </button>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    } catch(e) {
+      resDiv.innerHTML = `<p class="note" style="margin:6px 0">Error: ${esc(e.message)}</p>`;
+    }
+  };
+
+  btn.onclick = doSearch;
+  inp.onkeydown = e => { if(e.key === "Enter"){ e.preventDefault(); doSearch(); } };
+  inp.oninput = () => {
+    clearTimeout(timer);
+    timer = setTimeout(doSearch, 300);
+  };
+}
+
 async function pageCompareIngredients(arg){
   const P = $("#page");
   P.innerHTML = `<p class="meta">Loading active ingredient comparison…</p>`;
@@ -955,24 +1151,54 @@ async function pageCompareIngredients(arg){
     {name: "Metformin vs. Empagliflozin (T2D)", keys: ["cid:14219", "cid:11949646"]},
   ];
 
+  const modeBar = `
+    <div class="cmp-mode-bar">
+      <button class="cmp-mode-btn" onclick="location.hash='#/compare'">Compare Products (${TRAY.length})</button>
+      <button class="cmp-mode-btn on" onclick="location.hash='#/compare/ingredients'">Compare Active Ingredients (Clinical)</button>
+    </div>
+  `;
+
+  const searchBoxHtml = `
+    <div class="cmp-add-card" style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:14px 0;">
+      <div style="font-weight:600;font-size:13.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+        <span>➕</span> <b>Add active ingredient to comparison:</b>
+        <span style="font-size:12px;color:var(--muted);font-weight:normal">Search PubChem & EDA registered molecules (${keys.length}/4 selected)</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="search" id="cmp-ing-input" placeholder="Type active ingredient (e.g. Metformin, Omeprazole, Ciprofloxacin, Paracetamol, Ibuprofen)..." style="flex:1;padding:8px 12px;font-size:13.5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)">
+        <button id="cmp-ing-btn" class="btn primary" style="padding:8px 16px;font-size:13px;white-space:nowrap">Search</button>
+      </div>
+      <div id="cmp-ing-results" style="margin-top:10px;display:none"></div>
+    </div>
+  `;
+
   try {
     const d = await get("/api/clinical/compare?keys=" + keys.join(","));
     const mols = d.molecules || [];
-    if(!mols.length){
-      P.innerHTML = `<h2>Compare Active Ingredients</h2><p class="note">No comparison data available for selected molecules.</p>`;
-      return;
-    }
 
     const presetButtons = presets.map(pr => 
       `<button class="pathway-spec-btn ${pr.keys.sort().join(',') === keys.slice().sort().join(',') ? 'on' : ''}" onclick="location.hash='#/compare/ingredients?keys=${pr.keys.join(',')}'">${esc(pr.name)}</button>`
     ).join(" ");
 
-    const modeBar = `
-      <div class="cmp-mode-bar">
-        <button class="cmp-mode-btn" onclick="location.hash='#/compare'">Compare Products (${TRAY.length})</button>
-        <button class="cmp-mode-btn on" onclick="location.hash='#/compare/ingredients'">Compare Active Ingredients (Clinical)</button>
-      </div>
-    `;
+    const selectedChips = mols.map(m => `
+      <span style="display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent);border-radius:16px;padding:4px 10px;font-size:12.5px;font-weight:600">
+        ${esc(m.title)}
+        <button style="background:none;border:none;cursor:pointer;color:inherit;font-weight:bold;font-size:15px;line-height:1;padding:0 2px" title="Remove ${esc(m.title)}" onclick="removeCompareIngredient('${esc(m.key)}')">×</button>
+      </span>
+    `).join(" ");
+
+    if(!mols.length){
+      P.innerHTML = `<h2>Compare Active Ingredients</h2>
+        ${modeBar}
+        ${searchBoxHtml}
+        <div style="margin:12px 0">
+          <span style="font-size:12px;color:var(--muted);font-weight:600">Quick Clinical Comparisons:</span><br>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${presetButtons}</div>
+        </div>
+        <p class="note" style="margin-top:16px">No comparison data available for selected molecules. Use the search box above or choose a preset.</p>`;
+      bindCmpIngSearch(keys);
+      return;
+    }
 
     const CLINICAL_ROWS = [
       ["Pharmacological Class & ATC", m => m.atc ? `<a href="#/atc/${m.atc}">${esc(m.atc)}</a>` : '<span class="meta">–</span>'],
@@ -1005,6 +1231,11 @@ async function pageCompareIngredients(arg){
       <h2>Compare Active Ingredients (Clinical Pharmacology)</h2>
       ${modeBar}
       <p class="meta">Head-to-head clinical efficacy, pharmacokinetics, organ dose adjustment, and Egyptian market availability.</p>
+      ${searchBoxHtml}
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0">
+        <span style="font-size:12px;color:var(--muted);font-weight:600">Active molecules:</span>
+        ${selectedChips}
+      </div>
       <div style="margin:12px 0">
         <span style="font-size:12px;color:var(--muted);font-weight:600">Quick Clinical Comparisons:</span><br>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${presetButtons}</div>
@@ -1017,6 +1248,7 @@ async function pageCompareIngredients(arg){
               <th>
                 <a href="#/ingredient/${esc(m.key)}" style="font-size:15px;font-weight:bold">${esc(m.title)}</a>
                 ${m.eml ? '<span class="tag eml" style="margin-left:4px">WHO EML</span>' : ''}
+                <div style="margin-top:4px"><button class="cmpbtn" onclick="removeCompareIngredient('${esc(m.key)}')">remove</button></div>
               </th>
             `).join("")}
           </tr>
@@ -1024,8 +1256,13 @@ async function pageCompareIngredients(arg){
         <tbody>${body}</tbody>
       </table></div>
     `;
+    bindCmpIngSearch(keys);
   } catch(e) {
-    P.innerHTML = `<h2>Compare Active Ingredients</h2><p class="note">Error loading comparison: ${esc(e.message)}</p>`;
+    P.innerHTML = `<h2>Compare Active Ingredients</h2>
+      ${modeBar}
+      ${searchBoxHtml}
+      <p class="note">Error loading comparison: ${esc(e.message)}</p>`;
+    bindCmpIngSearch(keys);
   }
 }
 
