@@ -1183,16 +1183,16 @@ async function pageConditions(filter){
   try {
     let q = "";
     let spec = "";
-    const rawFilter = filter || "";
+    const rawFilter = (filter || "").trim();
     if(rawFilter.includes("specialty=")){
       const m = rawFilter.match(/specialty=([^&]+)/);
-      if(m) spec = decodeURIComponent(m[1]);
-    } else if(rawFilter && !rawFilter.includes("q=")){
-      spec = rawFilter;
+      if(m) spec = decodeURIComponent(m[1].replace(/\+/g, " "));
+    } else if(rawFilter && !rawFilter.includes("q=") && !rawFilter.startsWith("?")){
+      spec = decodeURIComponent(rawFilter.replace(/^[\/]/, "").replace(/\+/g, " "));
     }
     if(rawFilter.includes("q=")){
       const m = rawFilter.match(/q=([^&]+)/);
-      if(m) q = decodeURIComponent(m[1]);
+      if(m) q = decodeURIComponent(m[1].replace(/\+/g, " "));
     }
 
     const subNav = `
@@ -1519,11 +1519,12 @@ async function pageOntology(arg){
   P.innerHTML = `<p class="meta">Loading clinical ontology systems & crosswalk…</p>`;
   try {
     let qCode = "";
-    if(arg && arg.includes("code=")){
-      const m = arg.match(/code=([^&]+)/);
-      if(m) qCode = decodeURIComponent(m[1]);
-    } else if(arg){
-      qCode = arg;
+    const raw = (arg || "").trim();
+    if(raw.includes("code=")){
+      const m = raw.match(/code=([^&]+)/);
+      if(m) qCode = decodeURIComponent(m[1].replace(/\+/g, " "));
+    } else if(raw && !raw.startsWith("?")){
+      qCode = decodeURIComponent(raw.replace(/^[\/]/, "").replace(/\+/g, " "));
     }
 
     const subNav = `
@@ -2362,8 +2363,21 @@ async function pageChanges(since){
 
 // ---------------------------------------------------------------- router
 function route(){
-  const h = decodeURIComponent(location.hash.replace(/^#\/?/, ""));
-  const [view, ...rest] = h.split("/"); const arg = rest.join("/");
+  const rawH = location.hash.replace(/^#\/?/, "");
+  let pathPart = rawH;
+  let queryPart = "";
+  const qIdx = rawH.indexOf("?");
+  if(qIdx !== -1){
+    pathPart = rawH.slice(0, qIdx);
+    queryPart = rawH.slice(qIdx);
+  }
+  pathPart = pathPart.replace(/\/+$/, "");
+  const h = decodeURIComponent(pathPart);
+  const [view, ...rest] = h.split("/");
+  let arg = rest.join("/");
+  if(queryPart){
+    arg = arg ? arg + queryPart : queryPart;
+  }
   const drugs = !view || view === "drug";
   $("#view-drugs").hidden = !drugs; $("#page").hidden = drugs;
   $("#filters").style.display = drugs ? "" : "none";
