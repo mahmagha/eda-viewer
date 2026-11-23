@@ -214,13 +214,18 @@ html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
     <nav>
       <a href="#/" data-v="drugs">Drugs</a>
       <a href="#/ingredients" data-v="ingredients">Ingredients</a>
-      <a href="#/pathways" data-v="pathways" style="font-weight:600;color:var(--accent)">Clinical Pathways</a>
-      <a href="#/treats" data-v="treats">What it treats</a>
       <a href="#/companies" data-v="companies">Companies</a>
       <a href="#/antibiotics" data-v="antibiotics">Antibiotics</a>
       <a href="#/market" data-v="market">Market</a>
       <a href="#/stats" data-v="stats">Statistics</a>
       <a href="#/compare" data-v="compare" id="cmpnav">Compare</a>
+      <details class="morenav"><summary>Clinical ▾</summary><div class="menu">
+        <a href="#/pathways" data-v="pathways">Treatment pathways</a>
+        <a href="#/conditions" data-v="conditions">Health topics</a>
+        <a href="#/treats" data-v="treats">What it treats</a>
+        <a href="#/compare/ingredients" data-v="cmping">Ingredient comparator</a>
+        <a href="#/ontology" data-v="ontology">Coding systems</a>
+      </div></details>
       <details class="morenav"><summary>More ▾</summary><div class="menu">
         <a href="#/regulatory" data-v="regulatory">Regulatory status</a>
         <a href="#/controlled" data-v="controlled">Controlled substances</a>
@@ -1234,7 +1239,7 @@ async function pageCompareIngredients(arg){
         <b>${m.egyptian_market.registered_drugs} registered products</b><br>
         <div style="font-size:11.5px;color:var(--muted);margin:4px 0">Forms: ${(m.egyptian_market.dosage_forms||[]).join(", ")}</div>
         ${m.egyptian_market.sample_brands && m.egyptian_market.sample_brands.length ? `<div style="font-size:11px;margin-bottom:6px">Brands: ${esc(m.egyptian_market.sample_brands.join(", "))}</div>` : ""}
-        <button class="btn primary" style="font-size:11px;padding:3px 8px" onclick="showDrugList({ingredient:'${esc(m.title)}'})">View All Products in Egypt</button>
+        ${prodBtn(m.cid, m.title)}
       `]
     ];
 
@@ -1282,578 +1287,206 @@ async function pageCompareIngredients(arg){
 }
 
 // ---------------------------------------------------------------- clinical pathways & guidelines
+// shared by the clinical pages
+function clinicalSubNav(on){
+  const tabs = [["pathways", "#/pathways", "Treatment pathways"], ["conditions", "#/conditions", "Health topics (MedlinePlus)"],
+                ["treats", "#/treats", "What it treats"], ["compare", "#/compare/ingredients", "Ingredient comparator"],
+                ["ontology", "#/ontology", "Coding systems"]];
+  return `<div class="cmp-mode-bar" style="margin-bottom:14px">${tabs.map(([k, href, label]) =>
+    `<button class="cmp-mode-btn ${k === on ? "on" : ""}" onclick="location.hash='${href}'">${label}</button>`).join("")}</div>`;
+}
+const CLIN_NOTE = `<p class="note"><b>Reference information, not medical advice.</b> Check the current guideline, the product leaflet and a qualified clinician before treating anyone.</p>`;
+// "View products" buttons: filter the drug list by the ingredient's PubChem compound
+const prodBtn = (cid, name) => cid ? `<button class="btn primary" style="font-size:11px;padding:2px 7px" data-prod-cid="${esc(cid)}" data-prod-name="${esc(name)}">View products</button>` : "";
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("button[data-prod-cid]");
+  if(b) showDrugList({ings: [{key: "cid:" + b.dataset.prodCid, title: b.dataset.prodName}]});
+});
+function hashParam(raw, name){
+  const m = (raw || "").match(new RegExp("[?&]?" + name + "=([^&]+)"));
+  return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+}
+
 async function pagePathways(filter){
   const P = $("#page");
-  P.innerHTML = `<p class="meta">Loading clinical guidelines and pathways…</p>`;
+  P.innerHTML = `<p class="meta">Loading treatment pathways…</p>`;
   try {
     const d = await get("/api/clinical/pathways");
-    let activeSpec = "";
-    let searchQ = "";
-    const rawFilter = (filter || "").trim();
-    if(rawFilter.includes("q=")){
-      const m = rawFilter.match(/q=([^&]+)/);
-      if(m) searchQ = decodeURIComponent(m[1].replace(/\+/g, " "));
-    }
-    if(rawFilter.includes("specialty=")){
-      const m = rawFilter.match(/specialty=([^&]+)/);
-      if(m) activeSpec = decodeURIComponent(m[1].replace(/\+/g, " "));
-    } else if(rawFilter && !rawFilter.includes("q=") && !rawFilter.startsWith("?")){
-      activeSpec = decodeURIComponent(rawFilter.replace(/^[\/]/, "").replace(/\+/g, " "));
-    }
-
-    const totalAll = d.total_conditions || 1017;
-    const specs = [{name: "All Specialties", id: "", count: totalAll}, ...(d.specialties || []).map(s => ({name: s.name, id: s.name, count: (s.conditions || []).length}))];
-    
-    let conditions = [];
-    for(const s of (d.specialties || [])){
-      if(!activeSpec || s.name === activeSpec){
-        for(const c of (s.conditions || [])){
-          if(!searchQ || c.title.toLowerCase().includes(searchQ.toLowerCase()) || (c.icd10 && c.icd10.toLowerCase().includes(searchQ.toLowerCase())) || (c.guideline && c.guideline.toLowerCase().includes(searchQ.toLowerCase()))){
-            conditions.push({...c, specialty: s.name});
-          }
-        }
-      }
-    }
-
-    const specButtons = specs.map(s => {
-      const isAct = (s.name === "All Specialties" && !activeSpec) || s.name === activeSpec;
-      const targetHash = s.id ? `#/pathways/${encodeURIComponent(s.id)}${searchQ ? '?q=' + encodeURIComponent(searchQ) : ''}` : `#/pathways${searchQ ? '?q=' + encodeURIComponent(searchQ) : ''}`;
-      return `<button class="pathway-spec-btn ${isAct ? 'on' : ''}" onclick="location.hash='${targetHash}'">${esc(s.name)} ${s.count ? `(${s.count})` : ''}</button>`;
-    }).join(" ");
-
-    const cards = conditions.map(c => `
-      <a class="pathway-card" href="${c.pathway_link && !c.pathway_link.startsWith('guideline_') ? '#/pathway/' + esc(c.pathway_link) : '#/condition/' + esc(c.id)}">
-        <div class="p-meta">
-          <span class="tag" style="background:var(--accent-soft);color:var(--accent);font-weight:600">${esc(c.specialty)}</span>
-          <span class="tag">${esc(c.icd10)}</span>
-          <span class="tag ok" style="background:var(--ok-soft);color:var(--ok);font-weight:600">Stepped Care</span>
-        </div>
-        <h3>${esc(c.title)}</h3>
-        <p class="p-guideline">Guideline: ${esc(c.guideline)}</p>
-        <div style="font-size:12px;color:var(--muted);margin-top:8px">
-          ${c.targets_count || 3} clinical targets · ${c.steps_count || 4} stepped-care stages
-        </div>
-      </a>
-    `).join("");
-
-    const subNav = `
-      <div class="cmp-mode-bar" style="margin-bottom:14px">
-        <button class="cmp-mode-btn on" onclick="location.hash='#/pathways'">Stepped-Care Guidelines (${num(totalAll)})</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/conditions'">All Scraped Conditions A–Z (${num(totalAll)})</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/compare/ingredients'">Active Ingredient Comparator</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/ontology'">Coding Systems & Multi-Axial Crosswalk</button>
-      </div>
-    `;
-
+    const q = hashParam(filter, "q").toLowerCase();
+    const match = p => !q || [p.title, p.icd10, p.guideline, ...(p.topics || []).map(t => t.title)].some(x => (x || "").toLowerCase().includes(q));
+    const sections = (d.categories || []).map(c => {
+      const ps = c.pathways.filter(match);
+      return ps.length ? `<h3>${esc(c.name)}</h3><div class="pathway-grid">${ps.map(p => `
+        <a class="pathway-card" href="#/pathway/${esc(p.id)}">
+          <div class="p-meta">${p.icd10 ? `<span class="tag">${esc(p.icd10)}</span>` : ""}</div>
+          <h3>${esc(p.title)}</h3>
+          <p class="p-guideline">Summarised from: ${esc(p.guideline)}</p>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px">${p.steps_count} steps · ${p.targets_count} treatment targets
+            ${p.topics && p.topics.length ? ` · MedlinePlus: ${p.topics.map(t => esc(t.title)).join(", ")}` : ""}</div>
+        </a>`).join("")}</div>` : "";
+    }).join("");
     P.innerHTML = `
-      <h2>Evidence-Based Stepped-Care Clinical Guidelines</h2>
-      <p class="meta">Comprehensive clinical escalation pathways across all ${num(totalAll)} medical conditions and 18 specialties. Structured with biomarker targets, step-by-step drug regimens, and Egyptian market availability.</p>
-      ${subNav}
-      <div class="toolbar" style="margin-bottom:12px">
-        <input type="search" id="pw-search" placeholder="Filter stepped-care guidelines by condition, ICD-10 code, or clinical authority..." style="flex:1" value="${esc(searchQ)}">
-      </div>
-      <div class="pathway-spec-bar">${specButtons}</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Showing ${num(conditions.length)} of ${num(totalAll)} stepped-care guidelines</div>
-      <div class="pathway-grid">${cards || '<p class="meta">No clinical guidelines match this filter.</p>'}</div>
-    `;
-
+      <h2>Treatment pathways</h2>
+      <p class="meta">${num(d.total_pathways)} common conditions, each summarised by hand from one published guideline, with the Egyptian products for each medicine.
+        For other conditions, see the <a href="#/conditions">health topics</a>.</p>
+      <p class="note">${esc(d.note || "")}</p>
+      ${clinicalSubNav("pathways")}
+      <div class="toolbar" style="margin-bottom:12px"><input type="search" id="pw-search" placeholder="Filter by condition, ICD-10 code or guideline…" style="flex:1" value="${esc(q)}"></div>
+      ${sections || '<p class="meta">No pathway matches this filter.</p>'}`;
     let t;
-    const inputEl = $("#pw-search");
-    if(inputEl){
-      inputEl.oninput = () => {
-        clearTimeout(t);
-        t = setTimeout(() => {
-          const val = inputEl.value.trim();
-          location.hash = `#/pathways${activeSpec ? '/' + encodeURIComponent(activeSpec) : ''}?q=${encodeURIComponent(val)}`;
-        }, 300);
-      };
-    }
+    $("#pw-search").oninput = () => { clearTimeout(t); t = setTimeout(() => {
+      history.replaceState(null, "", "#/pathways?q=" + encodeURIComponent($("#pw-search").value.trim())); pagePathways("q=" + $("#pw-search").value.trim());
+    }, 300); };
   } catch(e) {
-    P.innerHTML = `<h2>Clinical Guidelines</h2><p class="note">Unable to load clinical pathways: ${esc(e.message)}</p>`;
+    P.innerHTML = `<h2>Treatment pathways</h2><p class="note">Unable to load the pathways: ${esc(e.message)}</p>`;
   }
 }
 
 async function pagePathway(id){
   const P = $("#page");
-  P.innerHTML = `<p class="meta">Loading clinical pathway…</p>`;
-  try {
-    const p = await get("/api/clinical/pathway?id=" + encodeURIComponent(id));
-    if(!p || p.error){
-      P.innerHTML = `<p class="note">Pathway not found.</p><p><a href="#/pathways">← Back to Clinical Pathways</a></p>`;
-      return;
-    }
-
-    const targetsHtml = p.clinical_targets && p.clinical_targets.length ? `
-      <h3>Clinical Targets & Goals</h3>
-      <div class="target-box">
-        ${p.clinical_targets.map(t => `
-          <div class="target-card">
-            <div class="target-param">${esc(t.parameter)}</div>
-            <div class="target-val">${esc(t.goal)}</div>
+  P.innerHTML = `<p class="meta">Loading the pathway…</p>`;
+  let p;
+  try { p = await get("/api/clinical/pathway?id=" + encodeURIComponent(id)); }
+  catch(e) { P.innerHTML = `<h2>Treatment pathway</h2><p class="note">${esc(e.message)}</p><p><a href="#/pathways">← All treatment pathways</a></p>`; return; }
+  const targetsHtml = p.clinical_targets && p.clinical_targets.length ? `
+    <h3>Treatment targets</h3>
+    <div class="target-box">${p.clinical_targets.map(t => `<div class="target-card"><div class="target-param">${esc(t.parameter)}</div><div class="target-val">${esc(t.goal)}</div></div>`).join("")}</div>` : "";
+  const stepsHtml = (p.steps || []).map(st => `
+    <div class="step-card">
+      <div class="step-header"><span class="step-badge">Step ${st.step}</span><h3 style="margin:0;font-size:16px">${esc(st.title)}</h3></div>
+      <p style="margin:6px 0 12px;font-size:13.5px;color:var(--text)">${esc(st.rationale)}</p>
+      ${(st.drug_classes || []).map(dc => {
+        const classCids = (dc.resolved_molecules || []).filter(m => m.cid).map(m => "cid:" + m.cid).join(",");
+        return `<div class="class-box">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+            <b style="font-size:14px;color:var(--accent)">${esc(dc.class_name)}</b>
+            ${classCids.includes(",") ? `<button class="btn" style="font-size:11px;padding:3px 8px" onclick="location.hash='#/compare/ingredients?keys=${classCids}'">Compare these ingredients</button>` : ""}
           </div>
-        `).join("")}
-      </div>
-    ` : "";
+          <div style="font-size:13px;margin:4px 0">${esc(dc.role)}</div>
+          ${dc.dosing ? `<div style="font-size:12.5px;color:var(--muted);margin:3px 0"><b>Usual dosing (check the leaflet):</b> ${esc(dc.dosing)}</div>` : ""}
+          ${dc.pearls ? `<div class="pearl-box"><b>Note:</b> ${esc(dc.pearls)}</div>` : ""}
+          <div style="margin-top:8px"><span style="font-size:12px;color:var(--muted);font-weight:600">In the Egyptian register:</span><br>
+            ${(dc.resolved_molecules || []).map(m => `<div class="mol-chip">
+              ${m.cid ? `<a href="#/ingredient/cid:${m.cid}" style="font-weight:600">${esc(m.canonical_name)}</a>` : `<b>${esc(m.canonical_name)}</b>`}
+              <span class="mol-count">${num(m.drug_count)} products</span>
+              ${m.sample_brands && m.sample_brands.length ? `<span style="font-size:11px;color:var(--muted)">e.g. ${esc(m.sample_brands.join(", "))}</span>` : ""}
+              ${prodBtn(m.cid, m.canonical_name)}</div>`).join("")}
+          </div></div>`;
+      }).join("")}
+    </div>`).join("");
+  const sp = p.special_populations || {};
+  const spRows = [["renal_impairment", "Kidney impairment"], ["hepatic_impairment", "Liver impairment"], ["pregnancy_lactation", "Pregnancy and breastfeeding"],
+                  ["elderly", "Older adults"], ["cardiovascular_disease", "Heart disease"]].filter(([k]) => sp[k]);
+  P.innerHTML = `
+    <p><a href="#/pathways">← All treatment pathways</a></p>
+    <h2>${esc(p.title)} ${p.icd10 ? `<span class="tag">${esc(p.icd10)}</span>` : ""} <span class="tag" style="background:var(--accent-soft);color:var(--accent)">${esc(p.category)}</span></h2>
+    <p class="src">Summarised from: <b>${esc(p.guideline)}</b>${p.topics && p.topics.length ? ` · MedlinePlus: ${p.topics.map(t => `<a href="#/condition/${esc(t.id)}">${esc(t.title)}</a>`).join(", ")}` : ""}</p>
+    <p class="note">${esc(p.note || "")}</p>
+    ${targetsHtml}
+    <h3>Steps</h3>${stepsHtml}
+    ${spRows.length ? `<h3>Special populations</h3><div class="panel" style="padding:14px;margin-bottom:16px">${spRows.map(([k, l]) => `<p style="margin:4px 0"><b>${l}:</b> ${esc(sp[k])}</p>`).join("")}</div>` : ""}
+    ${p.monitoring ? `<h3>Monitoring</h3><div class="panel" style="padding:14px;margin-bottom:16px"><p style="margin:0">${esc(p.monitoring)}</p></div>` : ""}`;
+}
 
-    const stepsHtml = (p.steps || []).map(st => `
-      <div class="step-card">
-        <div class="step-header">
-          <span class="step-badge">Stage ${st.step}</span>
-          <h3 style="margin:0;font-size:16px">${esc(st.title)}</h3>
-        </div>
-        <p style="margin:6px 0 12px;font-size:13.5px;color:var(--text)">${esc(st.rationale)}</p>
-        ${(st.drug_classes || []).map(dc => {
-          const classCids = (dc.resolved_molecules || []).filter(m => m.cid).map(m => "cid:" + m.cid).join(",");
-          return `
-            <div class="class-box">
-              <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
-                <b style="font-size:14px;color:var(--accent)">${esc(dc.class_name)}</b>
-                ${classCids.includes(",") ? `<button class="btn" style="font-size:11px;padding:3px 8px" onclick="location.hash='#/compare/ingredients?keys=${classCids}'">Compare Class Molecules</button>` : ""}
-              </div>
-              <div style="font-size:13px;margin:4px 0">${esc(dc.role)}</div>
-              ${dc.dosing ? `<div style="font-size:12.5px;color:var(--muted);margin:3px 0"><b>Dosing:</b> ${esc(dc.dosing)}</div>` : ""}
-              ${dc.pearls ? `<div class="pearl-box"><b>Clinical Pearl:</b> ${esc(dc.pearls)}</div>` : ""}
-              <div style="margin-top:8px">
-                <span style="font-size:12px;color:var(--muted);font-weight:600">Active Molecules (Egyptian Market):</span><br>
-                ${(dc.resolved_molecules || []).map(m => `
-                  <div class="mol-chip">
-                    <a href="${m.cid ? '#/ingredient/cid:'+m.cid : '#/'}" style="font-weight:600">${esc(m.canonical_name)}</a>
-                    <span class="mol-count">${m.drug_count} Egyptian products</span>
-                    ${m.sample_brands && m.sample_brands.length ? `<span style="font-size:11px;color:var(--muted)">e.g. ${esc(m.sample_brands.join(", "))}</span>` : ""}
-                    <button class="btn primary" style="font-size:11px;padding:2px 7px" onclick="showDrugList({ingredient:'${esc(m.canonical_name)}'})">View Products</button>
-                  </div>
-                `).join("")}
-              </div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `).join("");
-
-    const specPop = p.special_populations ? `
-      <h3>Special Populations & Organ Dosing</h3>
-      <div class="panel" style="padding:14px;margin-bottom:16px">
-        ${p.special_populations.renal_impairment ? `<p style="margin:4px 0"><b>Renal Impairment:</b> ${esc(p.special_populations.renal_impairment)}</p>` : ""}
-        ${p.special_populations.hepatic_impairment ? `<p style="margin:4px 0"><b>Hepatic Impairment:</b> ${esc(p.special_populations.hepatic_impairment)}</p>` : ""}
-        ${p.special_populations.pregnancy_lactation ? `<p style="margin:4px 0"><b>Pregnancy & Lactation:</b> ${esc(p.special_populations.pregnancy_lactation)}</p>` : ""}
-        ${p.special_populations.elderly ? `<p style="margin:4px 0"><b>Elderly Considerations:</b> ${esc(p.special_populations.elderly)}</p>` : ""}
-        ${p.special_populations.cardiovascular_disease ? `<p style="margin:4px 0"><b>Cardiovascular Comorbidities:</b> ${esc(p.special_populations.cardiovascular_disease)}</p>` : ""}
-      </div>
-    ` : "";
-
-    const monitoringHtml = p.monitoring ? `
-      <h3>Monitoring & Laboratory Follow-Up</h3>
-      <div class="panel" style="padding:14px;margin-bottom:16px;background:var(--ok-soft)">
-        <p style="margin:0">${esc(p.monitoring)}</p>
-      </div>
-    ` : "";
-
+async function pageConditions(filter){
+  const P = $("#page");
+  P.innerHTML = `<p class="meta">Loading health topics…</p>`;
+  try {
+    const q = hashParam(filter, "q"), group = hashParam(filter, "group") || hashParam(filter, "specialty"), kind = hashParam(filter, "kind");
+    const d = await get(`/api/clinical/conditions?q=${encodeURIComponent(q)}&specialty=${encodeURIComponent(group)}&kind=${encodeURIComponent(kind)}&limit=2000`);
+    const link = (g, k) => "#/conditions?" + [g && "group=" + encodeURIComponent(g), k && "kind=" + encodeURIComponent(k), q && "q=" + encodeURIComponent(q)].filter(Boolean).join("&");
+    const groupBtns = [{name: "", count: null}, ...(d.specialties || [])].map(s =>
+      `<button class="pathway-spec-btn ${s.name === group ? "on" : ""}" onclick="location.hash='${link(s.name, kind)}'">${s.name ? esc(s.name) + ` (${num(s.count)})` : "All groups"}</button>`).join(" ");
+    const kindBtns = [{name: "", count: null}, ...(d.kinds || [])].map(s =>
+      `<button class="pathway-spec-btn ${s.name === kind ? "on" : ""}" onclick="location.hash='${link(group, s.name)}'">${s.name ? esc(s.name) + ` (${num(s.count)})` : "All kinds"}</button>`).join(" ");
+    const cards = (d.rows || []).map(c => `
+      <a class="cond-card" href="#/condition/${esc(c.id)}">
+        <div class="c-meta"><span class="tag" style="background:var(--accent-soft);color:var(--accent);font-weight:600">${esc(c.specialty)}</span>
+          <span class="tag">${esc(c.kind)}</span>${c.icd10_code ? `<span class="tag">${esc(c.icd10_code)}</span>` : ""}
+          ${c.pathway_id ? `<span class="tag ok">Treatment pathway</span>` : ""}</div>
+        <h3>${esc(c.title)}</h3>
+        <div class="c-snip">${esc(c.summary || "")}</div>
+        <div class="c-foot"><span>${c.med_count ? `${num(c.med_count)} ingredients mentioned in PubChem indications` : ""}</span></div>
+      </a>`).join("");
     P.innerHTML = `
-      <p><a href="#/pathways">← Back to All Clinical Pathways</a></p>
-      <h2>${esc(p.title)} <span class="tag">${esc(p.icd10)}</span> <span class="tag" style="background:var(--accent-soft);color:var(--accent)">${esc(p.category)}</span></h2>
-      <p class="src">Clinical Guideline Source: <b>${esc(p.guideline)}</b></p>
-      ${targetsHtml}
-      <h3>Stepped Care Pathway</h3>
-      ${stepsHtml}
-      ${specPop}
-      ${monitoringHtml}
-    `;
+      <h2>Health topics</h2>
+      <p class="meta">${num(d.total)} of the U.S. National Library of Medicine's MedlinePlus health topics, grouped as MedlinePlus groups them.
+        Each shows the ingredients in the Egyptian register whose PubChem indication text mentions it.
+        Text from <a href="https://medlineplus.gov/" target="_blank" rel="noopener">MedlinePlus</a>.</p>
+      ${CLIN_NOTE}
+      ${clinicalSubNav("conditions")}
+      <div class="toolbar" style="margin-bottom:12px"><input type="search" id="cq" placeholder="Find a topic, symptom or ICD-10 code…" style="flex:1" value="${esc(q)}"></div>
+      <div class="pathway-spec-bar">${kindBtns}</div>
+      <div class="pathway-spec-bar">${groupBtns}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">${num((d.rows || []).length)} topics</div>
+      <div class="cond-grid">${cards || '<p class="meta">No topic matches this filter.</p>'}</div>`;
+    let t;
+    $("#cq").oninput = () => { clearTimeout(t); t = setTimeout(() => {
+      location.hash = "#/conditions?" + [group && "group=" + encodeURIComponent(group), kind && "kind=" + encodeURIComponent(kind),
+        "q=" + encodeURIComponent($("#cq").value.trim())].filter(Boolean).join("&");
+    }, 300); };
   } catch(e) {
-    P.innerHTML = `<h2>Clinical Pathway</h2><p class="note">Unable to load pathway: ${esc(e.message)}</p><p><a href="#/pathways">← Back to Clinical Pathways</a></p>`;
+    P.innerHTML = `<h2>Health topics</h2><p class="note">Unable to load the health topics: ${esc(e.message)}</p>`;
   }
 }
 
-// ---------------------------------------------------------------- all scraped conditions directory
-async function pageConditions(filter){
-  const P = $("#page");
-  P.innerHTML = `<p class="meta">Loading conditions directory…</p>`;
-  try {
-    let q = "";
-    let spec = "";
-    const rawFilter = (filter || "").trim();
-    if(rawFilter.includes("specialty=")){
-      const m = rawFilter.match(/specialty=([^&]+)/);
-      if(m) spec = decodeURIComponent(m[1].replace(/\+/g, " "));
-    } else if(rawFilter && !rawFilter.includes("q=") && !rawFilter.startsWith("?")){
-      spec = decodeURIComponent(rawFilter.replace(/^[\/]/, "").replace(/\+/g, " "));
-    }
-    if(rawFilter.includes("q=")){
-      const m = rawFilter.match(/q=([^&]+)/);
-      if(m) q = decodeURIComponent(m[1].replace(/\+/g, " "));
-    }
-
-    const subNav = `
-      <div class="cmp-mode-bar" style="margin-bottom:14px">
-        <button class="cmp-mode-btn" onclick="location.hash='#/pathways'">Stepped-Care Guidelines (1,017)</button>
-        <button class="cmp-mode-btn on" onclick="location.hash='#/conditions'">All Scraped Conditions A–Z (1,017)</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/compare/ingredients'">Active Ingredient Comparator</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/ontology'">Coding Systems & Multi-Axial Crosswalk</button>
-      </div>
-    `;
-
-    const d = await get(`/api/clinical/conditions?q=${encodeURIComponent(q)}&specialty=${encodeURIComponent(spec)}&limit=100`);
-    const specs = [{name: "All Specialties", count: d.total}, ...(d.specialties || [])];
-
-    const specButtons = specs.map(s => {
-      const isAct = (s.name === "All Specialties" && !spec) || s.name === spec;
-      const targetHash = s.name === "All Specialties" ? `#/conditions${q ? '?q=' + encodeURIComponent(q) : ''}` : `#/conditions?specialty=${encodeURIComponent(s.name)}${q ? '&q=' + encodeURIComponent(q) : ''}`;
-      return `<button class="pathway-spec-btn ${isAct ? 'on' : ''}" onclick="location.hash='${targetHash}'">${esc(s.name)} ${s.count ? `(${s.count})` : ''}</button>`;
-    }).join(" ");
-
-    const cards = (d.rows || []).map(c => `
-      <a class="cond-card" href="#/condition/${esc(c.id)}">
-        <div class="c-meta">
-          <span class="tag" style="background:var(--accent-soft);color:var(--accent);font-weight:600">${esc(c.specialty)}</span>
-          ${c.icd10_code ? `<span class="tag">${esc(c.icd10_code)}</span>` : ""}
-          ${c.has_clinical_guideline ? `<span class="tag ok" style="background:var(--ok-soft);color:var(--ok);font-weight:600">Guideline</span>` : ""}
-        </div>
-        <h3>${esc(c.title)}</h3>
-        ${c.icd10_name && c.icd10_name !== c.title ? `<div style="font-size:12px;color:var(--muted)">ICD-10: ${esc(c.icd10_name)}</div>` : ""}
-        <div class="c-snip">${esc(c.summary || "")}</div>
-        <div class="c-foot">
-          <span>${c.med_count || 0} approved EDA molecules</span>
-          ${c.guideline_authority ? `<span style="font-weight:500;color:var(--accent)">${esc(c.guideline_authority)}</span>` : `<span style="color:var(--muted)">Monograph & Rx</span>`}
-        </div>
-      </a>
-    `).join("");
-
-    P.innerHTML = `
-      <h2>All Scraped Ailments & Medical Conditions</h2>
-      <p class="meta">Comprehensive directory of 1,017 conditions across all 18 clinical specialties. Unifying ICD-10 taxonomy, stepped-care clinical guidelines, NIH patient care monographs, molecular pharmacology, and Egyptian market brand availability.</p>
-      ${subNav}
-      <div class="toolbar" style="margin-bottom:12px">
-        <input type="search" id="cq" placeholder="Filter conditions by diagnosis, ICD-10 code, or symptoms..." style="flex:1" value="${esc(q)}">
-      </div>
-      <div class="pathway-spec-bar">${specButtons}</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Showing ${num((d.rows || []).length)} of ${num(d.total)} conditions</div>
-      <div class="cond-grid">${cards || '<p class="meta">No conditions match this filter.</p>'}</div>
-    `;
-
-    let t;
-    const inputEl = $("#cq");
-    if(inputEl){
-      inputEl.oninput = () => {
-        clearTimeout(t);
-        t = setTimeout(() => {
-          const val = inputEl.value.trim();
-          location.hash = `#/conditions?${spec ? 'specialty=' + encodeURIComponent(spec) + '&' : ''}q=${encodeURIComponent(val)}`;
-        }, 300);
-      };
-    }
-  } catch(e) {
-    P.innerHTML = `<h2>Conditions Directory</h2><p class="note">Unable to load conditions: ${esc(e.message)}</p>`;
-  }
+function crosswalkHtml(d){
+  const cw = d.ontology_crosswalk;
+  if(!cw || !cw.axes) return "";
+  const ax = cw.axes;
+  const pills = (o, skipNA) => Object.entries(o || {}).filter(([s, i]) => !skipNA || i.code !== "Not applicable").map(([sys, info]) =>
+    `<div class="code-pill" title="${esc(info.name)}"><span>${esc(sys)}:</span> <b>${esc(info.code)}</b></div>`).join("");
+  return `<h3>Codes in other systems</h3>
+    <p class="meta">Hand-made crosswalk for this condition. <a href="#/ontology">Coding systems ›</a></p>
+    <div class="rel-grid">
+      <div class="rel-card"><b style="font-size:12.5px;color:var(--accent)">Anatomy</b><div style="margin-top:6px">${pills(ax.topographical)}</div></div>
+      <div class="rel-card"><b style="font-size:12.5px;color:var(--accent)">Diagnosis</b><div style="margin-top:6px">${pills(ax.diagnostic_general)}${pills(ax.diagnostic_specialized, true)}</div></div>
+      <div class="rel-card"><b style="font-size:12.5px;color:var(--accent)">Procedures and tests</b><div style="margin-top:6px">${pills(ax.procedural)}</div></div>
+      <div class="rel-card"><b style="font-size:12.5px;color:var(--accent)">Medicines</b><div style="margin-top:6px">${pills(ax.pharmaceutical)}</div></div>
+      <div class="rel-card"><b style="font-size:12.5px;color:var(--accent)">Outcomes</b><div style="margin-top:6px">${pills(ax.outcomes)}</div></div>
+    </div>`;
 }
 
 async function pageCondition(id){
   const P = $("#page");
-  P.innerHTML = `<p class="meta">Loading condition dossier…</p>`;
-  try {
-    const d = await get("/api/clinical/condition?id=" + encodeURIComponent(id));
-    if(!d || d.error){
-      P.innerHTML = `<p class="note">Condition not found.</p><p><a href="#/conditions">← Back to Conditions Directory</a></p>`;
-      return;
-    }
+  P.innerHTML = `<p class="meta">Loading the health topic…</p>`;
+  let d;
+  try { d = await get("/api/clinical/condition?id=" + encodeURIComponent(id)); }
+  catch(e) { P.innerHTML = `<h2>Health topic</h2><p class="note">${esc(e.message)}</p><p><a href="#/conditions">← All health topics</a></p>`; return; }
+  const ings = (d.ingredients || []).map(m => `<tr>
+      <td>${m.cid ? `<a href="#/ingredient/cid:${m.cid}" style="font-weight:600">${esc(m.name)}</a>` : `<b>${esc(m.name)}</b>`}
+        ${m.source ? `<div style="font-size:11px;color:var(--muted)">${esc(m.source)}, via PubChem</div>` : ""}</td>
+      <td style="font-size:12.5px">${esc(m.snippet || "")}</td>
+      <td class="num">${num(m.products)}</td>
+      <td style="text-align:end">${prodBtn(m.cid, m.name)}</td></tr>`).join("");
+  P.innerHTML = `
+    <p><a href="#/conditions">← All health topics</a></p>
+    <h2 style="margin:0 0 6px">${esc(d.title)}</h2>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      ${(d.groups || []).map(g => `<a class="tag" href="#/conditions?group=${encodeURIComponent(g)}">${esc(g)}</a>`).join("")}
+      <span class="tag">${esc(d.kind)}</span>
+    </div>
+    ${d.synonyms && d.synonyms.length ? `<div style="font-size:12.5px;color:var(--muted);margin-top:6px"><b>Also called:</b> ${esc(d.synonyms.join("; "))}</div>` : ""}
+    ${CLIN_NOTE}
+    ${d.pathway ? `<div class="pearl-box"><b>Treatment pathway:</b> <a href="#/pathway/${esc(d.pathway.id)}">${esc(d.pathway.title)} →</a>
+      <span class="meta">summarised from ${esc(d.pathway.guideline || "")}</span></div>` : ""}
 
-    const s1 = d.styles.style_1_icd10;
-    const s2 = d.styles.style_2_guidelines;
-    const s3 = d.styles.style_3_monograph;
-    const s4 = d.styles.style_4_pharmacology;
-    const s5 = d.styles.style_5_egyptian_market;
+    <h3>About</h3>
+    <div style="font-size:13.5px;line-height:1.55">${esc(d.summary)}</div>
+    ${d.treatment ? `<h4 style="margin:14px 0 6px">Treatment (MedlinePlus Medical Encyclopedia)</h4><div style="font-size:13px;line-height:1.5">${esc(d.treatment)}</div>` : ""}
+    <p class="src">From <a href="${esc(d.url)}" target="_blank" rel="noopener">MedlinePlus</a>, U.S. National Library of Medicine.</p>
 
-    const synHtml = d.synonyms && d.synonyms.length ? `
-      <div style="font-size:12.5px;color:var(--muted);margin-top:4px">
-        <b>Also called:</b> ${esc(d.synonyms.join("; "))}
-      </div>
-    ` : "";
+    <h3>ICD-10-CM</h3>
+    ${d.icd10 ? `<p><b>${esc(d.icd10.code)}</b> ${esc(d.icd10.name)}${d.icd10.chapter ? ` <span class="meta">· ${esc(d.icd10.chapter)}</span>` : ""}</p>`
+              : `<p class="meta">No ICD-10-CM code has exactly this name. This topic may cover several codes, or none (tests, procedures and general topics).</p>`}
+    ${d.mesh && d.mesh.length ? `<div style="font-size:12px"><b>MeSH headings:</b> ${d.mesh.map(m => `<span class="tag">${esc(m)}</span>`).join(" ")}</div>` : ""}
 
-    const drugsTable = (s5.top_prescribed_molecules || []).map(m => `
-      <tr>
-        <td>
-          <a href="${m.cid ? '#/ingredient/cid:' + m.cid : '#/'}" style="font-weight:600">${esc(m.molecule_name)}</a>
-          ${m.indication_source ? `<div style="font-size:11px;color:var(--muted)">Source: ${esc(m.indication_source)}</div>` : ""}
-        </td>
-        <td>
-          <div style="font-size:12.5px">${esc(m.indication_snippet || "Approved indication for this condition")}</div>
-        </td>
-        <td class="num">
-          <b>${m.egyptian_product_count}</b> brands
-        </td>
-        <td style="text-align:end">
-          <button class="btn primary" style="font-size:11.5px;padding:3px 9px" onclick="showDrugList({ingredient:'${esc(m.molecule_name)}'})">View Products</button>
-        </td>
-      </tr>
-    `).join("");
-
-    P.innerHTML = `
-      <p><a href="#/conditions">← Back to All Conditions Directory</a></p>
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
-        <div>
-          <h2 style="margin:0 0 6px">${esc(d.title)}</h2>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <span class="tag" style="background:var(--accent-soft);color:var(--accent);font-weight:600">${esc(d.specialty)}</span>
-            ${s1.code ? `<span class="tag">${esc(s1.code)}</span>` : ""}
-            ${s2.has_guideline ? `<span class="tag ok" style="background:var(--ok-soft);color:var(--ok);font-weight:600">Active Stepped-Care Guideline</span>` : ""}
-          </div>
-          ${synHtml}
-        </div>
-        ${s3.reference_url ? `<a href="${s3.reference_url}" target="_blank" rel="noopener" class="btn" style="font-size:12px">NIH Reference ↗</a>` : ""}
-      </div>
-
-      <!-- Style 1: ICD-10 Taxonomy -->
-      <div class="style-section">
-        <div class="style-header">
-          <h3 style="margin:0">Style 1: ICD-10 Diagnostic Taxonomy</h3>
-          <span class="style-badge" style="background:var(--accent-soft);color:var(--accent)">Taxonomy</span>
-        </div>
-        <div class="target-box" style="margin-bottom:0">
-          <div class="target-card">
-            <div class="target-param">ICD-10 Code</div>
-            <div class="target-val" style="font-weight:700;color:var(--accent)">${esc(s1.code || "Unclassified")}</div>
-          </div>
-          <div class="target-card">
-            <div class="target-param">Diagnostic Description</div>
-            <div class="target-val">${esc(s1.name || d.title)}</div>
-          </div>
-          <div class="target-card">
-            <div class="target-param">ICD-10 Chapter / Block</div>
-            <div class="target-val">${esc(s1.chapter || "Clinical Medicine")}</div>
-          </div>
-        </div>
-        ${s1.who_url ? `<p style="margin:10px 0 0;font-size:12px"><a href="${s1.who_url}" target="_blank" rel="noopener">Browse ICD-10 Coding at World Health Organization (WHO) ↗</a></p>` : ""}
-      </div>
-
-      <!-- Style 2: Clinical Guidelines & Stepped Care -->
-      <div class="style-section">
-        <div class="style-header">
-          <h3 style="margin:0">Style 2: Evidence-Based Clinical Practice Guidelines & Stepped Care</h3>
-          <span class="style-badge" style="background:var(--ok-soft);color:var(--ok)">Stepped Care (${s2.steps_count || (s2.steps && s2.steps.length) || 4} Steps)</span>
-        </div>
-        <div class="pearl-box" style="margin-top:0">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
-            <div>
-              <b>Guideline Authority:</b> ${esc(s2.guideline_authority || "International Specialty Clinical Consensus (2024)")}<br>
-              <span style="font-size:12px;color:var(--muted)">Evidence Level: <b>${esc(s2.evidence_grade || "Grade A / Class I")}</b></span>
-            </div>
-            ${s2.pathway_id && !s2.pathway_id.startsWith('guideline_') ? `<a class="btn primary" style="font-size:12px;padding:3px 9px" href="#/pathway/${esc(s2.pathway_id)}">Open Full Pathway View →</a>` : ""}
-          </div>
-        </div>
-
-        ${s2.clinical_targets && s2.clinical_targets.length ? `
-          <h4 style="margin:14px 0 8px;font-size:14px">Clinical Biomarker Targets & Remission Goals</h4>
-          <div class="target-box" style="margin-bottom:12px">
-            ${s2.clinical_targets.map(t => `
-              <div class="target-card">
-                <div class="target-param">${esc(t.parameter)}</div>
-                <div class="target-val">${esc(t.goal)}</div>
-              </div>
-            `).join("")}
-          </div>
-        ` : ""}
-
-        <h4 style="margin:14px 0 8px;font-size:14px">Structured Stepped-Care Escalation Protocol</h4>
-        <div style="display:flex;flex-direction:column;gap:12px">
-          ${(s2.steps || []).map(st => `
-            <div class="step-card" style="margin:0">
-              <div class="step-header">
-                <span class="step-badge">Step ${st.step}</span>
-                <h4 style="margin:0;font-size:15px">${esc(st.title)}</h4>
-              </div>
-              <p style="margin:6px 0 10px;font-size:13px;color:var(--text)">${esc(st.rationale)}</p>
-              ${(st.drug_classes || []).map(dc => {
-                const molNames = dc.molecules || [];
-                return `
-                  <div class="class-box" style="margin-top:8px">
-                    <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
-                      <b style="font-size:13.5px;color:var(--accent)">${esc(dc.class_name)}</b>
-                    </div>
-                    <div style="font-size:12.5px;margin:3px 0">${esc(dc.role)}</div>
-                    ${dc.dosing ? `<div style="font-size:12px;color:var(--muted);margin:3px 0"><b>Dosing Strategy:</b> ${esc(dc.dosing)}</div>` : ""}
-                    ${dc.pearls ? `<div class="pearl-box" style="font-size:12px;margin:6px 0"><b>Prescribing Pearl:</b> ${esc(dc.pearls)}</div>` : ""}
-                    ${molNames.length ? `
-                      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-                        <span style="font-size:11.5px;color:var(--muted);font-weight:600">Active Agents:</span>
-                        ${molNames.map(m => `
-                          <button class="btn" style="font-size:11px;padding:2px 7px" onclick="showDrugList({ingredient:'${esc(m)}'})">
-                            🔍 ${esc(m)}
-                          </button>
-                        `).join("")}
-                      </div>
-                    ` : ""}
-                  </div>
-                `;
-              }).join("")}
-            </div>
-          `).join("")}
-        </div>
-
-        ${s2.special_populations ? `
-          <h4 style="margin:14px 0 8px;font-size:14px">Special Populations & Organ Dosing</h4>
-          <div class="panel" style="padding:12px;margin-bottom:8px;font-size:12.5px">
-            ${s2.special_populations.renal_impairment ? `<p style="margin:3px 0"><b>Renal Impairment:</b> ${esc(s2.special_populations.renal_impairment)}</p>` : ""}
-            ${s2.special_populations.hepatic_impairment ? `<p style="margin:3px 0"><b>Hepatic Impairment:</b> ${esc(s2.special_populations.hepatic_impairment)}</p>` : ""}
-            ${s2.special_populations.pregnancy_lactation ? `<p style="margin:3px 0"><b>Pregnancy & Lactation:</b> ${esc(s2.special_populations.pregnancy_lactation)}</p>` : ""}
-            ${s2.special_populations.elderly ? `<p style="margin:3px 0"><b>Elderly Considerations:</b> ${esc(s2.special_populations.elderly)}</p>` : ""}
-          </div>
-        ` : ""}
-      </div>
-
-      <!-- Style 3: Patient Care & Clinical Monograph -->
-      <div class="style-section">
-        <div class="style-header">
-          <h3 style="margin:0">Style 3: Patient Care & Clinical Monograph (NIH)</h3>
-          <span class="style-badge" style="background:var(--panel);border:1px solid var(--line)">Monograph</span>
-        </div>
-        <div style="font-size:13.5px;line-height:1.55;color:var(--text);margin-bottom:14px">
-          <b>Clinical Summary:</b><br>${esc(s3.summary)}
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px 14px">
-          <b style="font-size:13px;color:var(--accent)">Clinical Treatment & Management:</b>
-          <div style="font-size:13px;line-height:1.5;margin-top:6px;color:var(--text)">
-            ${esc(s3.treatment)}
-          </div>
-        </div>
-      </div>
-
-      <!-- Style 4 & 5: Pharmacology & Egyptian Market Availability -->
-      <div class="style-section">
-        <div class="style-header">
-          <h3 style="margin:0">Style 4 & 5: Pharmacology & Egyptian Market Availability</h3>
-          <span class="style-badge" style="background:var(--accent);color:#fff">${s5.total_registered_brands} Egyptian Brands</span>
-        </div>
-        <p class="meta" style="margin-bottom:12px">Active pharmacological substances linked to this indication by PubChem (DrugBank, HSDB, StatPearls) and cross-referenced with Egyptian Drug Authority registrations.</p>
-        
-        ${s4.mesh_descriptors && s4.mesh_descriptors.length ? `
-          <div style="margin-bottom:12px;font-size:12px">
-            <b>MeSH Medical Subject Headings:</b>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
-              ${s4.mesh_descriptors.map(m => `<span class="tag">${esc(m)}</span>`).join(" ")}
-            </div>
-          </div>
-        ` : ""}
-
-        ${drugsTable ? `
-          <div class="sub">
-            <table>
-              <thead>
-                <tr>
-                  <th>Active Molecule</th>
-                  <th>Clinical Indication</th>
-                  <th class="num">Egyptian Brands</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${drugsTable}
-              </tbody>
-            </table>
-          </div>
-        ` : `<p class="meta">No registered Egyptian molecules directly linked in the current database index.</p>`}
-      </div>
-
-      <!-- Multi-Axial Clinical Coding Crosswalk -->
-      ${(() => {
-        const cw = d.ontology_crosswalk;
-        if(!cw || !cw.axes) return `
-          <div class="style-section">
-            <div class="style-header">
-              <h3 style="margin:0">Multi-Axial Clinical Coding Crosswalk</h3>
-              <a href="#/ontology" class="btn" style="font-size:11px">Open Ontology Browser →</a>
-            </div>
-            <p class="meta">Crosswalk standard active for 5 clinical axes (Topography, Diagnosis General & Specialized, Procedures, Pharmaceutical, and Outcomes).</p>
-          </div>
-        `;
-        const ax = cw.axes;
-        return `
-          <div class="style-section">
-            <div class="style-header">
-              <h3 style="margin:0">Multi-Axial Clinical Coding Crosswalk (All 5 Axes Related)</h3>
-              <span class="style-badge" style="background:var(--accent);color:#fff">Interrelated Ontology</span>
-            </div>
-            <p class="meta" style="margin-bottom:12px">Relational mapping linking this condition across Topographical, Diagnostic, Procedural, Pharmaceutical, and Clinical Outcome standards.</p>
-            <div class="rel-grid">
-              <!-- Axis 1: Topographical -->
-              <div class="rel-card">
-                <b style="font-size:12.5px;color:var(--accent)">1. Topographical Codes (Site & Anatomy)</b>
-                <div style="margin-top:6px">
-                  ${Object.entries(ax.topographical || {}).map(([sys, info]) => `
-                    <div class="code-pill" title="${esc(info.name)}">
-                      <span>${esc(sys)}:</span> <b>${esc(info.code)}</b> ${info.snomed_ct ? `<span style="font-size:10px">(${info.snomed_ct})</span>` : ''}
-                    </div>
-                  `).join("")}
-                </div>
-              </div>
-
-              <!-- Axis 2A: Diagnostic General -->
-              <div class="rel-card">
-                <b style="font-size:12.5px;color:var(--accent)">2A. Diagnostic Codes (General)</b>
-                <div style="margin-top:6px">
-                  ${Object.entries(ax.diagnostic_general || {}).map(([sys, info]) => `
-                    <div class="code-pill" title="${esc(info.name)}">
-                      <span>${esc(sys)}:</span> <b>${esc(info.code)}</b>
-                    </div>
-                  `).join("")}
-                </div>
-              </div>
-
-              <!-- Axis 2B: Diagnostic Specialized -->
-              <div class="rel-card">
-                <b style="font-size:12.5px;color:var(--accent)">2B. Diagnostic Codes (Specialized)</b>
-                <div style="margin-top:6px">
-                  ${Object.entries(ax.diagnostic_specialized || {}).filter(([s, i]) => i.code !== "Not applicable").map(([sys, info]) => `
-                    <div class="code-pill" title="${esc(info.name)}">
-                      <span>${esc(sys)}:</span> <b>${esc(info.code)}</b>
-                    </div>
-                  `).join("")}
-                </div>
-              </div>
-
-              <!-- Axis 3: Procedural -->
-              <div class="rel-card">
-                <b style="font-size:12.5px;color:var(--accent)">3. Procedural Codes (Intervention & Lab)</b>
-                <div style="margin-top:6px">
-                  ${Object.entries(ax.procedural || {}).map(([sys, info]) => `
-                    <div class="code-pill" title="${esc(info.name)}">
-                      <span>${esc(sys)}:</span> <b>${esc(info.code)}</b>
-                    </div>
-                  `).join("")}
-                </div>
-              </div>
-
-              <!-- Axis 4: Pharmaceutical -->
-              <div class="rel-card">
-                <b style="font-size:12.5px;color:var(--accent)">4. Pharmaceutical Codes (Molecules & NDC)</b>
-                <div style="margin-top:6px">
-                  ${Object.entries(ax.pharmaceutical || {}).map(([sys, info]) => `
-                    <div class="code-pill" title="${esc(info.name)}">
-                      <span>${esc(sys)}:</span> <b>${esc(info.code)}</b>
-                    </div>
-                  `).join("")}
-                </div>
-              </div>
-
-              <!-- Axis 5: Outcomes -->
-              <div class="rel-card">
-                <b style="font-size:12.5px;color:var(--accent)">5. Outcomes Codes (NOC & Target Goals)</b>
-                <div style="margin-top:6px">
-                  ${Object.entries(ax.outcomes || {}).map(([sys, info]) => `
-                    <div class="code-pill" title="${esc(info.name)}">
-                      <span>${esc(sys)}:</span> <b>${esc(info.code)}</b>
-                    </div>
-                  `).join("")}
-                </div>
-              </div>
-            </div>
-            <div style="margin-top:12px;font-size:12px">
-              <a href="#/ontology?code=${encodeURIComponent(s1.code || '')}" class="btn">Explore in Full Cross-Axial Ontology Matrix →</a>
-            </div>
-          </div>
-        `;
-      })()}
-    `;
-  } catch(e) {
-    P.innerHTML = `<h2>Condition Dossier</h2><p class="note">Unable to load condition: ${esc(e.message)}</p><p><a href="#/conditions">← Back to Conditions Directory</a></p>`;
-  }
+    <h3>Ingredients whose PubChem indication text mentions this topic</h3>
+    <p class="meta">Found by searching the indication and therapeutic-use texts PubChem collects. A mention is not a recommendation:
+      the text may say the medicine treats it, causes it, or is used despite it. Read the excerpt.</p>
+    ${ings ? `<div class="sub"><table><thead><tr><th>Ingredient</th><th>Excerpt</th><th class="num">Egyptian products</th><th></th></tr></thead><tbody>${ings}</tbody></table></div>`
+           : `<p class="meta">None found.</p>`}
+    ${crosswalkHtml(d)}`;
 }
 
 // ---------------------------------------------------------------- multi-axial ontology & coding systems
@@ -1870,14 +1503,7 @@ async function pageOntology(arg){
       qCode = decodeURIComponent(raw.replace(/^[\/]/, "").replace(/\+/g, " "));
     }
 
-    const subNav = `
-      <div class="cmp-mode-bar" style="margin-bottom:14px">
-        <button class="cmp-mode-btn" onclick="location.hash='#/pathways'">Stepped-Care Guidelines (14)</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/conditions'">All Scraped Conditions A–Z (1,017)</button>
-        <button class="cmp-mode-btn" onclick="location.hash='#/compare/ingredients'">Active Ingredient Comparator</button>
-        <button class="cmp-mode-btn on" onclick="location.hash='#/ontology'">Coding Systems & Multi-Axial Crosswalk</button>
-      </div>
-    `;
+    const subNav = clinicalSubNav("ontology");
 
     const dSys = await get("/api/clinical/ontology/systems");
     const axMap = {
@@ -2725,9 +2351,13 @@ function route(){
   $("#view-drugs").hidden = !drugs; $("#page").hidden = drugs;
   $("#filters").style.display = drugs ? "" : "none";
   const v = drugs ? "drugs" : view;
-  const navv = {ingredient: "ingredients", company: "companies", manufacturer: "companies", group: "companies", pathway: "pathways", pathways: "pathways", conditions: "pathways", condition: "pathways", ontology: "pathways"}[v] || v;
+  const navv = {ingredient: "ingredients", company: "companies", manufacturer: "companies", group: "companies", pathway: "pathways",
+                condition: "conditions", compare: location.hash.includes("/compare/ingredients") ? "cmping" : "compare"}[v] || v;
   document.querySelectorAll("nav a").forEach(a => a.classList.toggle("on", a.dataset.v === navv));
-  const mn = document.querySelector("details.morenav"); if(mn){ mn.open = false; mn.classList.toggle("on", !!mn.querySelector("a.on")); }
+  document.querySelectorAll("details.morenav").forEach(mn => { mn.open = false; mn.classList.toggle("on", !!mn.querySelector("a.on")); });
+  if(!window._menusWired){ window._menusWired = true;  // one menu open at a time
+    document.querySelectorAll("details.morenav").forEach(mn => mn.addEventListener("toggle", () => {
+      if(mn.open) document.querySelectorAll("details.morenav").forEach(o => { if(o !== mn) o.open = false; }); })); }
   if(view === "drug" && arg) showDrug(+arg);
   else if(view === "ingredient") pageIngredient(arg);
   else if(view === "sop") pageSop(arg);
