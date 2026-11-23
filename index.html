@@ -883,10 +883,13 @@ window.addSampleProducts = async function(idx){
   TRAY = [];
   for(const q of list){
     try {
-      const res = await get("/api/drugs?q=" + encodeURIComponent(q) + "&limit=1");
+      const res = await get("/api/drugs?q=" + encodeURIComponent(q));
       if(res && res.rows && res.rows.length){
         const r = res.rows[0];
-        TRAY.push({id: r.drug_id, name: r.trade_name});
+        const drugId = +(r.id != null ? r.id : r.drug_id);
+        const listVals = r.list ? Object.values(r.list) : [];
+        const name = (r.list && (r.list["Trade Name"] || r.list["trade_name"])) || listVals[0] || r.trade_name || ("Product #" + drugId);
+        if(drugId && !inTray(drugId)) TRAY.push({id: drugId, name: name});
       }
     } catch(e){}
   }
@@ -911,8 +914,8 @@ function bindCmpProdSearch(){
     resDiv.style.display = "block";
     resDiv.innerHTML = `<p class="meta" style="margin:6px 0">Searching products…</p>`;
     try {
-      const data = await get("/api/drugs?q=" + encodeURIComponent(q) + "&limit=6");
-      const rows = data.rows || [];
+      const data = await get("/api/drugs?q=" + encodeURIComponent(q));
+      const rows = (data.rows || []).slice(0, 8);
       if(!rows.length){
         resDiv.innerHTML = `<p class="meta" style="margin:6px 0">No products found matching "<b>${esc(q)}</b>".</p>`;
         return;
@@ -920,17 +923,29 @@ function bindCmpProdSearch(){
       resDiv.innerHTML = `
         <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Select product to add to comparison (max 6):</div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${rows.map(r => `
-            <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 12px">
-              <div>
-                <a href="#/drug/${r.drug_id}" style="font-weight:600;font-size:13.5px">${esc(r.trade_name || "#" + r.drug_id)}</a>
-                <div style="font-size:12px;color:var(--muted)">${esc(ingText(r))} • ${esc(r.form || "")} • ${esc(r.company || "")} ${r.min_price != null ? "• " + money(r.min_price) : ""}</div>
+          ${rows.map(r => {
+            const drugId = +(r.id != null ? r.id : r.drug_id);
+            const listVals = r.list ? Object.values(r.list) : [];
+            const name = (r.list && (r.list["Trade Name"] || r.list["trade_name"])) || listVals[0] || r.trade_name || ("Product #" + drugId);
+            const generics = (r.list && (r.list["Generics"] || r.list["generics"])) || listVals[1] || "";
+            const compName = (r.list && (r.list["Applicant Name"] || r.list["applicant_name"] || r.list["company"])) || listVals[2] || r.company || "";
+            const formName = (r.list && (r.list["Dosage Form"] || r.list["dosage_form"] || r.list["form"])) || listVals[3] || r.form || "";
+            const priceVal = r.price != null ? r.price : r.min_price;
+            const inCmp = inTray(drugId);
+            return `
+              <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 12px">
+                <div>
+                  <a href="#/drug/${drugId}" style="font-weight:600;font-size:13.5px">${esc(name)}</a>
+                  <div style="font-size:12px;color:var(--muted)">
+                    ${generics ? `<b>${esc(generics)}</b> • ` : ""}${esc(formName)}${compName ? ` • ${esc(compName)}` : ""}${priceVal != null ? ` • ${money(priceVal)}` : ""}
+                  </div>
+                </div>
+                <button class="btn ${inCmp ? "" : "primary"}" style="font-size:12px;padding:4px 10px;white-space:nowrap" onclick="toggleTray(${drugId}, '${esc(name)}'); pageCompare();">
+                  ${inCmp ? "✓ Remove" : "+ Add to compare"}
+                </button>
               </div>
-              <button class="btn ${inTray(r.drug_id) ? "" : "primary"}" style="font-size:12px;padding:4px 10px;white-space:nowrap" onclick="toggleTray(${r.drug_id}, '${esc(r.trade_name || "")}'); pageCompare();">
-                ${inTray(r.drug_id) ? "✓ In comparison" : "+ Add to compare"}
-              </button>
-            </div>
-          `).join("")}
+            `;
+          }).join("")}
         </div>
       `;
     } catch(e) {
