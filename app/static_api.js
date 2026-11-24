@@ -35,7 +35,7 @@ const ATC_L1 = {A: "Alimentary tract and metabolism", B: "Blood and blood formin
 const TREAT_SECTIONS = ["Drug Indication", "Therapeutic Uses", "MeSH Pharmacological Classification"];
 
 // ------------------------------------------------------------------ the product table (data/index.json)
-let DB = null;
+let DB = null, DB_READY = false;
 function db(){
   return DB || (DB = load("index.json").then(x => {
     const c = x.cols, d = x.dicts, n = c.t.length, at = (dict, i) => i < 0 ? null : d[dict][i];
@@ -72,6 +72,7 @@ function db(){
     }
     const byId = new Map(rows.map(r => [r.drug_id, r]));
     const mfrCountry = new Map(x.mfrs.map(m => [m[0], m[3]]));
+    DB_READY = true;
     return {x, rows, byId, ings, byKey, mfrCountry};
   }));
 }
@@ -161,6 +162,13 @@ async function filterRows(p){
   return {D, rows};
 }
 async function apiList(p){
+  if(!DB_READY){
+    // the product table is still loading: the plain first page comes from a small file, anything else waits
+    const keys = [...p.keys()].filter(k => k !== "page" && p.get(k));
+    if(!keys.length && !+(p.get("page") || 0)){ const f = await load("first.json").catch(() => null); if(f) return f; }
+    const info = document.getElementById("pinfo");
+    if(info) info.textContent = "Loading the product list for searching (only on your first visit)…";
+  }
   const {D, rows} = await filterRows(p);
   const size = D.x.page_size, page = Math.max(0, +(p.get("page") || 0));
   return {total: rows.length, page, page_size: size, also: [],
@@ -548,5 +556,8 @@ document.addEventListener("click", e => {
 
 window.EDA_STATIC = true;
 if(document.body) document.body.classList.add("static", "no-rdkit", "no-openpyxl");  // before the page first draws
+// keep the data on the device between visits (app/sw.js); only where service workers are allowed
+if("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1"))
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 db().then(D => window.requestIdleCallback ? requestIdleCallback(() => haystack(D), {timeout: 1500}) : setTimeout(() => haystack(D), 300));  // load the product table and its search text straight away
 })();
