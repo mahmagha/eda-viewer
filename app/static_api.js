@@ -67,6 +67,7 @@ function db(){
         ings: c.ig[i].map(([k, s]) => [ings[k], s]),
       };
       for(const [g] of r.ings) if(g.drugs[g.drugs.length - 1] !== r) g.drugs.push(r);  // once, even if listed twice
+      r.i = i;  // position in the search-text array
       rows[i] = r;
     }
     const byId = new Map(rows.map(r => [r.drug_id, r]));
@@ -89,6 +90,7 @@ const hasAtc = (r, code) => r.ings.some(([g]) => g.atc.some(a => a.startsWith(co
 const isEml = r => r.ings.some(([g]) => g.eml);
 
 // ------------------------------------------------------------------ drug list (same filters as build_where)
+// the lower-case search text of every product, built once (in idle time right after the data loads)
 let HAY = null;
 function haystack(D){
   if(!HAY) HAY = D.rows.map(r => [r.trade_name, ...Object.values(r.list), r.company, r.company_raw, r.company_group,
@@ -97,17 +99,27 @@ function haystack(D){
   return HAY;
 }
 async function treatKeys(q){ return new Set((await apiTreats(q)).rows.map(r => r.key)); }
+// LAST: the previous text search (unsorted), so typing on ("para" -> "parac") only searches its results;
+// DONE: the previous full result, so paging through it doesn't search again
+let LAST = null, DONE = null;
 async function filterRows(p){
   const D = await db();
+  const full = new URLSearchParams(p); full.delete("page");
+  const fullKey = full.toString();
+  if(DONE && DONE.key === fullKey) return {D, rows: DONE.rows};
+  const rest = new URLSearchParams(full); rest.delete("q"); rest.delete("sort");
+  const restKey = rest.toString();
   const tests = [];
-  const q = (p.get("q") || "").trim();
+  const q = (p.get("q") || "").trim(), ql = q.toLowerCase();
+  let base = D.rows;
   if(q && q.length < 3){
     const ql = q.toLowerCase(), qu = q.toUpperCase();
     tests.push(r => nocase(r.trade_name).startsWith(ql) || nocase(r.company).startsWith(ql)
       || r.ings.some(([g]) => g.names.some(n => n[0].toUpperCase().startsWith(qu))));
   } else if(q){
-    const H = haystack(D), ql = q.toLowerCase(), pos = new Map(D.rows.map((r, i) => [r, i]));
-    tests.push(r => H[pos.get(r)].includes(ql));
+    const H = haystack(D);
+    tests.push(r => H[r.i].includes(ql));
+    if(LAST && LAST.key === restKey && LAST.q.length >= 3 && ql.startsWith(LAST.q)) base = LAST.rows;
   }
   const type = p.get("type");
   if(type) tests.push(type === "medicines" ? r => r.drug_type !== "cosmetics" : r => r.drug_type === type);
@@ -135,13 +147,17 @@ async function filterRows(p){
     if(p.get("only") === "1") tests.push(r => { const ks = new Set(r.ings.map(([g]) => g.key)); return ks.size === new Set(want).size && want.every(k => ks.has(k)); });
   }
   if(p.get("atc")){ const code = p.get("atc").toUpperCase(); tests.push(r => hasAtc(r, code)); }
-  let rows = D.rows.filter(r => tests.every(t => t(r)));
+  const found = base.filter(r => tests.every(t => t(r)));
+  LAST = {key: restKey, q: q.length >= 3 ? ql : "", rows: found};
+  let rows = found;
   const sort = p.get("sort") || "";
+  if(sort) rows = rows.slice();
   const price = (a, b, dir) => cmp(a.min_price == null, b.min_price == null) || dir * ((a.min_price || 0) - (b.min_price || 0)) || a.drug_id - b.drug_id;
   if(sort === "name") rows.sort((a, b) => byName(a, b) || a.drug_id - b.drug_id);
   else if(sort === "price") rows.sort((a, b) => price(a, b, 1));
   else if(sort === "price_desc") rows.sort((a, b) => price(a, b, -1));
   else if(sort === "company") rows.sort((a, b) => cmp(nocase(a.company), nocase(b.company)) || byName(a, b));
+  DONE = {key: fullKey, rows};
   return {D, rows};
 }
 async function apiList(p){
@@ -532,5 +548,5 @@ document.addEventListener("click", e => {
 
 window.EDA_STATIC = true;
 if(document.body) document.body.classList.add("static", "no-rdkit", "no-openpyxl");  // before the page first draws
-db();  // start loading the product table straight away
+db().then(D => window.requestIdleCallback ? requestIdleCallback(() => haystack(D), {timeout: 1500}) : setTimeout(() => haystack(D), 300));  // load the product table and its search text straight away
 })();

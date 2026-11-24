@@ -2514,7 +2514,7 @@ $("#list thead").addEventListener("click", e => {
   $("#sort").value = F.sort; page = 0; loadList().then(() => { const nb = $(`#list thead button[data-sort="${b.dataset.sort}"]`); if(nb) nb.focus(); });
 });
 $("#detail").addEventListener("click", e => { if(e.target.closest(".closebtn")) closeDrug(); });
-$("#q").addEventListener("input", () => { clearTimeout(timer); timer=setTimeout(()=>{readControls(); page=0; loadList();}, 250); });
+$("#q").addEventListener("input", () => { clearTimeout(timer); timer=setTimeout(()=>{readControls(); page=0; loadList();}, 150); });
 $("#company").addEventListener("input", () => { clearTimeout(timer); timer=setTimeout(()=>{readControls(); page=0; loadList();}, 350); });
 for(const id of ["type","status","form","license","marketing","sort","price","group","origin","country","storage","species","pop","aware","flag","eml"])
   $("#"+id).onchange = () => { readControls(); page=0; loadList(); };
