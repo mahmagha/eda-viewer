@@ -100,41 +100,47 @@ function haystack(D){
   return HAY;
 }
 async function treatKeys(q){ return new Set((await apiTreats(q)).rows.map(r => r.key)); }
-// LAST: the previous text search (unsorted), so typing on ("para" -> "parac") only searches its results;
+// Filters that follow the results: each dropdown lists only values found among the products that match
+// every OTHER filter, with counts. FACETS maps a list parameter to how to read that value from a product.
+const FACETS = {type: r => r.drug_type, form: r => r.form, license: r => r.license, marketing: r => r.marketing,
+  group: r => r.company_group, country: r => r.mfr_country, origin: r => r.origin, storage: r => r.storage_cat,
+  species: r => r.species};
+// LAST: rows matching the previous text search (only the text), so typing on ("para" -> "parac") scans just those;
 // DONE: the previous full result, so paging through it doesn't search again
 let LAST = null, DONE = null;
 async function filterRows(p){
   const D = await db();
   const full = new URLSearchParams(p); full.delete("page");
   const fullKey = full.toString();
-  if(DONE && DONE.key === fullKey) return {D, rows: DONE.rows};
-  const rest = new URLSearchParams(full); rest.delete("q"); rest.delete("sort");
-  const restKey = rest.toString();
-  const tests = [];
+  if(DONE && DONE.key === fullKey) return {D, rows: DONE.rows, facets: DONE.facets};
   const q = (p.get("q") || "").trim(), ql = q.toLowerCase();
-  let base = D.rows;
+  let text = null, base = D.rows;
   if(q && q.length < 3){
-    const ql = q.toLowerCase(), qu = q.toUpperCase();
-    tests.push(r => nocase(r.trade_name).startsWith(ql) || nocase(r.company).startsWith(ql)
-      || r.ings.some(([g]) => g.names.some(n => n[0].toUpperCase().startsWith(qu))));
+    const qu = q.toUpperCase();
+    text = r => nocase(r.trade_name).startsWith(ql) || nocase(r.company).startsWith(ql)
+      || r.ings.some(([g]) => g.names.some(n => n[0].toUpperCase().startsWith(qu)));
   } else if(q){
     const H = haystack(D);
-    tests.push(r => H[r.i].includes(ql));
-    if(LAST && LAST.key === restKey && LAST.q.length >= 3 && ql.startsWith(LAST.q)) base = LAST.rows;
+    text = r => H[r.i].includes(ql);
+    if(LAST && LAST.q.length >= 3 && ql.startsWith(LAST.q)) base = LAST.rows;
   }
+  // filters with a dropdown (named, so each one's own choice can be left out of its own counts) ...
+  const named = [];
   const type = p.get("type");
-  if(type) tests.push(type === "medicines" ? r => r.drug_type !== "cosmetics" : r => r.drug_type === type);
+  if(type) named.push(["type", type === "medicines" ? r => r.drug_type !== "cosmetics" : r => r.drug_type === type]);
+  for(const col of ["form", "license", "marketing"]){ const v = p.get(col); if(v) named.push([col, r => r[col] === v]); }
+  for(const [col, key] of [["company_group", "group"], ["mfr_country", "country"], ["origin", "origin"], ["storage_cat", "storage"]]){
+    const v = p.get(key); if(v) named.push([key, r => r[col] === v]);
+  }
+  if(p.get("species")){ const s = p.get("species"); named.push(["species", r => r.species.includes(s)]); }
+  // ... and the rest
+  const tests = [];
   if(p.get("status") === "errors") tests.push(r => r.err);
   else if(p.get("status") === "details") tests.push(r => r.has_detail);
-  for(const col of ["form", "license", "marketing"]){ const v = p.get(col); if(v) tests.push(r => r[col] === v); }
   const company = (p.get("company") || "").trim();
   if(company) tests.push(r => like(r.company, company) || like(r.company_raw, company) || like(r.spellings, company) || like(r.company_group, company));
-  for(const [col, key] of [["company_group", "group"], ["mfr_country", "country"], ["origin", "origin"], ["storage_cat", "storage"]]){
-    const v = p.get(key); if(v) tests.push(r => r[col] === v);
-  }
   if(p.get("mfr")){ const k = companyKey(p.get("mfr")); tests.push(r => r.mfr_key === k); }
   if(p.get("ckey")){ const k = p.get("ckey"); tests.push(r => r.company_key === k); }
-  if(p.get("species")){ const s = p.get("species"); tests.push(r => r.species.includes(s)); }
   if(p.get("aware")){ const a = p.get("aware"); tests.push(r => r.aware && (a === "any" || a === r.aware)); }
   if(p.get("flag") === "withdrawn") tests.push(r => r.withdrawn);
   if(p.get("flag") === "controlled") tests.push(r => r.controlled);
@@ -148,8 +154,23 @@ async function filterRows(p){
     if(p.get("only") === "1") tests.push(r => { const ks = new Set(r.ings.map(([g]) => g.key)); return ks.size === new Set(want).size && want.every(k => ks.has(k)); });
   }
   if(p.get("atc")){ const code = p.get("atc").toUpperCase(); tests.push(r => hasAtc(r, code)); }
-  const found = base.filter(r => tests.every(t => t(r)));
-  LAST = {key: restKey, q: q.length >= 3 ? ql : "", rows: found};
+  // one pass: a product failing no dropdown filter counts for every dropdown; one failing exactly one
+  // dropdown filter counts only for that dropdown (it would appear if that choice were changed)
+  const counts = Object.fromEntries(Object.keys(FACETS).map(k => [k, new Map()]));
+  const add = (k, r) => { const v = FACETS[k](r), m = counts[k];
+    for(const x of Array.isArray(v) ? v : [v]) if(x != null && x !== "") m.set(x, (m.get(x) || 0) + 1); };
+  const keys = Object.keys(FACETS), textRows = [], found = [];
+  for(const r of base){
+    if(text && !text(r)) continue;
+    textRows.push(r);
+    if(!tests.every(t => t(r))) continue;
+    let miss = null, misses = 0;
+    for(const [k, t] of named) if(!t(r)){ miss = k; if(++misses > 1) break; }
+    if(misses === 0){ found.push(r); for(const k of keys) add(k, r); }
+    else if(misses === 1) add(miss, r);
+  }
+  LAST = q.length >= 3 ? {q: ql, rows: textRows} : null;
+  const facets = Object.fromEntries(keys.map(k => [k, [...counts[k]].sort((a, b) => b[1] - a[1] || cmp(a[0], b[0]))]));
   let rows = found;
   const sort = p.get("sort") || "";
   if(sort) rows = rows.slice();
@@ -158,8 +179,8 @@ async function filterRows(p){
   else if(sort === "price") rows.sort((a, b) => price(a, b, 1));
   else if(sort === "price_desc") rows.sort((a, b) => price(a, b, -1));
   else if(sort === "company") rows.sort((a, b) => cmp(nocase(a.company), nocase(b.company)) || byName(a, b));
-  DONE = {key: fullKey, rows};
-  return {D, rows};
+  DONE = {key: fullKey, rows, facets};
+  return {D, rows, facets};
 }
 async function apiList(p){
   if(!DB_READY){
@@ -169,9 +190,9 @@ async function apiList(p){
     const info = document.getElementById("pinfo");
     if(info) info.textContent = "Loading the product list for searching (only on your first visit)…";
   }
-  const {D, rows} = await filterRows(p);
+  const {D, rows, facets} = await filterRows(p);
   const size = D.x.page_size, page = Math.max(0, +(p.get("page") || 0));
-  return {total: rows.length, page, page_size: size, also: [],
+  return {total: rows.length, page, page_size: size, also: [], facets,
           rows: rows.slice(page * size, (page + 1) * size).map(r => ({id: r.drug_id, type: r.drug_type, err: r.err, price: r.min_price, list: r.list}))};
 }
 async function exportCsv(p){

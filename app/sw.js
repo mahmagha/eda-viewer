@@ -2,7 +2,7 @@
 // It keeps the exported data files (../data/...) on the device, so a second visit doesn't download the
 // 3 MB product table again. Each export writes a new VERSION, which gives a fresh cache and deletes the old
 // one, so visitors never mix data from two exports. Pages and scripts are always fetched from the network.
-const VERSION = "20261124074648";
+const VERSION = "20261124081756";
 const CACHE = "eda-data-" + VERSION;
 
 self.addEventListener("install", () => self.skipWaiting());

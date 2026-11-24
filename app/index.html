@@ -295,7 +295,7 @@ html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
       title="3 or more letters search every field; 1–2 letters match the start of trade, company and ingredient names">
     <button id="filtbtn" type="button" aria-expanded="false" aria-controls="filters">Filters ▾</button>
     <!-- main filters, each with a visible label so a chosen value still says what it filters -->
-    <label class="fl"><span>Type</span><select id="type"><option value="">All types</option><option value="medicines">All except cosmetics</option></select></label>
+    <label class="fl"><span>Type</span><select id="type"><option value="">All types</option><option value="medicines" data-fixed="1">All except cosmetics</option></select></label>
     <label class="fl"><span>Dosage form</span><select id="form"><option value="">Any dosage form</option></select></label>
     <label class="fl"><span>Licence</span><select id="license"><option value="">Any licence status</option></select></label>
     <label class="fl"><span>Company</span><input id="company" placeholder="contains…" style="width:170px"></label>
@@ -355,7 +355,7 @@ html[dir=rtl] .bars .bt,html[dir=rtl] .bars .bf{border-radius:4px 0 0 4px}
   <section class="panel page" id="page" hidden></section>
 </main>
 <footer class="seofoot" style="padding:16px;text-align:center;font-size:13px;color:var(--muted)"><a href="../">Home</a> · <a href="../browse/">Browse medicines A–Z</a> · <a href="../browse/ingredients.html">Active ingredients A–Z</a> · <span>Unofficial copy of the Egyptian Drug Authority (EDA) public register, not affiliated with the EDA. Reference information only, not medical advice: check with the EDA and a pharmacist.</span></footer>
-<script src="static_api.js?v=20261124074648"></script>
+<script src="static_api.js?v=20261124081756"></script>
 <script>
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -435,6 +435,30 @@ function hl(text){
 }
 async function get(url){ const r = await fetch(url); const j = await r.json(); if(!r.ok) throw new Error(j.error||r.status); return j; }
 
+// Filters that follow the results: each dropdown lists only the values found among the products matching
+// the other filters, with counts, most common first. A chosen value stays listed, with (0) if nothing matches.
+const FACET_SELECTS = ["type", "form", "license", "marketing", "group", "country", "origin", "storage", "species"];
+let FACETED = false;
+function drawFacets(fc){
+  FACETED = true;
+  for(const k of FACET_SELECTS){
+    const sel = $("#" + k), list = fc[k];
+    if(!sel || !list) continue;
+    const cur = sel.value;
+    const fixed = [...sel.options].filter(o => o.value === "" || o.dataset.fixed);  // "Any …", "All except cosmetics"
+    sel.textContent = "";
+    for(const o of fixed) sel.append(o);
+    if(k === "type"){
+      const med = fixed.find(o => o.value === "medicines");
+      if(med) med.textContent = `All except cosmetics (${num(list.filter(([v]) => v !== "cosmetics").reduce((a, [, n]) => a + n, 0))})`;
+    }
+    const seen = new Set(fixed.map(o => o.value));
+    for(const [v, n] of list){ const o = document.createElement("option"); o.value = v; o.textContent = `${v} (${num(n)})`; sel.append(o); seen.add(v); }
+    if(cur && !seen.has(cur)){ const o = document.createElement("option"); o.value = cur; o.textContent = `${cur} (0)`; sel.append(o); }
+    sel.value = cur;
+  }
+}
+
 async function loadStats(){
   try{
     const [s, f] = await Promise.all([get("/api/stats"), get("/api/facets")]);
@@ -442,10 +466,12 @@ async function loadStats(){
     if(s.static) document.body.classList.add("static");  // exported read-only copy (eda_static.py)
     $("#stats").textContent = `${s.drugs.toLocaleString()} products · ${s.with_details.toLocaleString()} with details · ${s.errors} detail errors · ${s.searches.toLocaleString()} searches done`
       + (s.static ? ` · read-only copy of ${s.exported}` : "");
-    for(const t of s.types){ const o=document.createElement("option"); o.value=o.textContent=t; $("#type").append(o); }
-    const fill = (sel, vals) => { for(const v of vals){ const o=document.createElement("option"); o.value=o.textContent=v; $(sel).append(o); } };
-    fill("#form", f.forms); fill("#license", f.license); fill("#marketing", f.marketing);
-    fill("#group", f.groups||[]); fill("#country", f.countries||[]); fill("#storage", f.storage||[]); fill("#species", f.species||[]);
+    if(!FACETED){  // the drug list fills these with counts once its first result arrives; until then, all values
+      for(const t of s.types){ const o=document.createElement("option"); o.value=o.textContent=t; $("#type").append(o); }
+      const fill = (sel, vals) => { for(const v of vals){ const o=document.createElement("option"); o.value=o.textContent=v; $(sel).append(o); } };
+      fill("#form", f.forms); fill("#license", f.license); fill("#marketing", f.marketing);
+      fill("#group", f.groups||[]); fill("#country", f.countries||[]); fill("#storage", f.storage||[]); fill("#species", f.species||[]);
+    }
     writeControls();
   }catch(e){ $("#stats").textContent = e.message; }
 }
@@ -490,6 +516,7 @@ async function loadList(){
     + (d.also && d.also.length ? ` · includes ${d.also.join(", ")}` : "");
   $("#pageinfo").textContent = `page ${page+1} of ${pages.toLocaleString()}`;
   $("#prev").disabled = page===0; $("#next").disabled = page+1>=pages;
+  if(d.facets) drawFacets(d.facets);
   suggestFor(F.q, d.total);
 }
 
