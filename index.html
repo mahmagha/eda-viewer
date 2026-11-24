@@ -65,11 +65,16 @@ form.search button{font:600 17px/1 system-ui,sans-serif;padding:0 24px;border:0;
 .slip-actions span{color:var(--muted)}
 .slip-actions button{position:relative;z-index:1;font:inherit;color:var(--accent);background:none;border:0;padding:8px 0;cursor:pointer;text-decoration:underline}
 /* a blank card under the record, showing below it; swipe or drag the record away to see the next one */
-.deck{position:relative;padding-bottom:16px}
+.deck{position:relative;padding:0 14px 16px 0}
 .slip.front{z-index:1;touch-action:pan-y;user-select:none;transition:transform .28s ease,opacity .28s ease,border-color .15s,box-shadow .15s}
 .slip.front.dragging{transition:none;cursor:grabbing}
-.deck .back{position:absolute;inset:16px 16px 0;z-index:0;background:var(--panel);border:1px solid var(--line);
-  border-radius:4px 4px 12px 12px;opacity:.7}
+.deck .back{position:absolute;inset:16px 0 0 16px;z-index:0;background:var(--panel);border:1px solid var(--line);
+  border-radius:4px 4px 12px 12px;opacity:.7;cursor:pointer;transition:opacity .15s,border-color .15s}
+/* the edge showing on the right is a target for trackpad and mouse users: click it for the next record */
+.deck .back::after{content:"";position:absolute;right:3px;top:50%;width:6px;height:6px;border:solid var(--muted);
+  border-width:2px 2px 0 0;transform:translateY(-50%) rotate(45deg)}
+.deck .back:hover{opacity:1;border-color:var(--accent)}
+.deck .back:hover::after{border-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.slip.front{transition:none}}
 section{padding:44px 0;border-top:1px solid var(--line)}
 h2.sec{font:600 26px/1.25 "IBM Plex Sans",system-ui,sans-serif;margin:0 0 6px}
@@ -100,7 +105,7 @@ ul.features.one{grid-template-columns:1fr}
 footer{border-top:1px solid var(--line);padding:28px 0 40px;font-size:14px;color:var(--muted)}
 footer p{max-width:80ch;margin:0 0 10px}
 @media (max-width:860px){.hero{grid-template-columns:1fr;gap:36px;padding-top:16px}}
-@media (max-width:480px){form.search{flex-direction:column}form.search button{padding:14px}.slip{padding:22px 18px 16px}.deck{padding-bottom:12px}.deck .back{inset:12px 10px 0}.slip-rows{grid-template-columns:1fr;gap:0}.slip-rows dd{margin-bottom:8px}}
+@media (max-width:480px){form.search{flex-direction:column}form.search button{padding:14px}.slip{padding:22px 18px 16px}.deck{padding:0 10px 12px 0}.deck .back{inset:12px 0 0 12px}.deck .back::after{right:1px}.slip-rows{grid-template-columns:1fr;gap:0}.slip-rows dd{margin-bottom:8px}}
 </style>
 </head>
 <body>
@@ -126,7 +131,7 @@ footer p{max-width:80ch;margin:0 0 10px}
           For reference only: check with the EDA and a pharmacist before relying on it.</p>
       </div>
       <div class="deck" id="deck">
-      <div class="back" aria-hidden="true"></div>
+      <div class="back" id="back" aria-hidden="true" title="Next record"></div>
       <article class="slip front" id="slip" aria-live="polite" aria-label="A record from the register">
       <p class="slip-head"><span>EDA registration</span><span class="reg" data-f="reg">34504</span></p>
       <h2 class="slip-name"><a class="slip-link" href="medicines/panadol-extra-with-optizorb-formulation-2.html" data-f="page"><span data-f="name">Panadol extra with optizorb formulation</span></a></h2>
@@ -224,6 +229,8 @@ function another(dir = -1){
 }
 const btn = document.getElementById("another");
 if(btn) btn.onclick = () => another(-1);
+const back = document.getElementById("back");
+if(back) back.onclick = () => another(-1);
 // swipe (touch) or drag (mouse) the card sideways; a short move snaps back, a vertical move scrolls the page
 let drag = null, swiped = false;
 if(front){
